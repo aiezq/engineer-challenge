@@ -12,6 +12,8 @@ export const metadata: Metadata = {
   description: "Checkout the awesome authentication module",
 };
 
+import { ApolloWrapper } from "@/lib/ApolloWrapper";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -20,7 +22,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={`${inter.variable} antialiased`}>
-        {children}
+        <ApolloWrapper>
+          {children}
+        </ApolloWrapper>
       </body>
     </html>
   );
