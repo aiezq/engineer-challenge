@@ -29,6 +29,7 @@ def make_settings(*, rate_limit_fail_open: bool) -> Settings:
         app_env="test",
         database_url="sqlite+aiosqlite:///:memory:",
         redis_url="redis://localhost:6379",
+        app_base_url="http://localhost:3000",
         jwt_secret_key="test-secret",
         jwt_algorithm="HS256",
         access_token_expire_minutes=30,

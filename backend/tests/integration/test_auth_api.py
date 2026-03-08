@@ -288,6 +288,11 @@ class AuthApiIntegrationTests(unittest.TestCase):
                 """
                 mutation RequestReset($email: String!) {
                   requestPasswordReset(input: { email: $email })
+                  {
+                    ok
+                    deliveryMode
+                    resetUrlPreview
+                  }
                 }
                 """,
                 {"email": "user@example.com"},
@@ -296,6 +301,11 @@ class AuthApiIntegrationTests(unittest.TestCase):
                 """
                 mutation RequestReset($email: String!) {
                   requestPasswordReset(input: { email: $email })
+                  {
+                    ok
+                    deliveryMode
+                    resetUrlPreview
+                  }
                 }
                 """,
                 {"email": "missing@example.com"},
@@ -303,8 +313,17 @@ class AuthApiIntegrationTests(unittest.TestCase):
 
         self.assertEqual(existing_response.status_code, 200)
         self.assertEqual(unknown_response.status_code, 200)
-        self.assertTrue(existing_response.json()["data"]["requestPasswordReset"])
-        self.assertTrue(unknown_response.json()["data"]["requestPasswordReset"])
+        self.assertTrue(existing_response.json()["data"]["requestPasswordReset"]["ok"])
+        self.assertTrue(unknown_response.json()["data"]["requestPasswordReset"]["ok"])
+        self.assertEqual(
+            existing_response.json()["data"]["requestPasswordReset"]["deliveryMode"],
+            "demo-preview",
+        )
+        self.assertIn(
+            raw_token,
+            existing_response.json()["data"]["requestPasswordReset"]["resetUrlPreview"],
+        )
+        self.assertIsNone(unknown_response.json()["data"]["requestPasswordReset"]["resetUrlPreview"])
         self.assertEqual(user.reset_token_hash, graphql_schema.token_service.hash_reset_token(raw_token))
         self.assertNotEqual(user.reset_token_hash, raw_token)
 

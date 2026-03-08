@@ -7,13 +7,25 @@ import CenteredAuthLayout from "@/components/CenteredAuthLayout";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+type RequestResetResult = {
+    requestPasswordReset: {
+        ok: boolean;
+        deliveryMode: string;
+        resetUrlPreview: string | null;
+    };
+};
+
 export default function ForgotPasswordPage() {
     const [email, setEmail] = useState("");
     const [submitted, setSubmitted] = useState(false);
+    const [resetUrlPreview, setResetUrlPreview] = useState<string | null>(null);
+    const [deliveryMode, setDeliveryMode] = useState("email");
     const router = useRouter();
 
-    const [requestReset, { loading, error }] = useMutation(REQUEST_RESET_MUTATION, {
-        onCompleted: () => {
+    const [requestReset, { loading, error }] = useMutation<RequestResetResult>(REQUEST_RESET_MUTATION, {
+        onCompleted: (data) => {
+            setResetUrlPreview(data.requestPasswordReset.resetUrlPreview);
+            setDeliveryMode(data.requestPasswordReset.deliveryMode);
             setSubmitted(true);
         }
     });
@@ -31,8 +43,24 @@ export default function ForgotPasswordPage() {
                 <div className="w-full max-w-md mx-auto text-center animate-in fade-in zoom-in-95 duration-500">
                     <h1 className="text-3xl font-medium text-gray-900 mb-6">Проверьте свою почту</h1>
                     <p className="text-gray-400 text-sm mb-12">
-                        Мы отправили на почту письмо с ссылкой для восстановления пароля
+                        {deliveryMode === "demo-preview"
+                            ? "В demo-режиме ссылка для восстановления доступна прямо на этой странице."
+                            : "Мы отправили на почту письмо с ссылкой для восстановления пароля"}
                     </p>
+
+                    {resetUrlPreview && (
+                        <div className="mb-8 rounded-xl border border-[#dbeafe] bg-[#f8fbff] p-4 text-left">
+                            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[#3b82f6]">
+                                Demo reset link
+                            </p>
+                            <Link
+                                href={resetUrlPreview}
+                                className="break-all text-sm font-medium text-[#2563eb] underline decoration-[#93c5fd] underline-offset-4"
+                            >
+                                {resetUrlPreview}
+                            </Link>
+                        </div>
+                    )}
 
                     <button
                         onClick={() => router.push('/login')}

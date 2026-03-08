@@ -25,6 +25,7 @@ docker-compose up --build
 
 ### Основные переменные окружения backend
 - `APP_ENV`: `development`, `test` или `production`. По умолчанию `development`.
+- `APP_BASE_URL`: базовый URL frontend-приложения для формирования reset-link preview.
 - `JWT_SECRET_KEY`: обязателен в `production`. В `development` и `test` используется стабильный dev-secret по умолчанию.
 - `RATE_LIMIT_FAIL_OPEN`: опциональный override для поведения rate limiter при недоступном Redis.
 - `CORS_ORIGINS`: CSV-список origin-ов для frontend.
@@ -47,8 +48,10 @@ npm run dev
 ### Тесты backend
 ```bash
 cd backend
-pip install -r requirements-dev.txt
-python3 -m pytest
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt -r requirements-dev.txt
+PYTHONPATH=. python3 -m unittest discover -s tests -p 'test_*.py'
 ```
 
 ---
@@ -121,6 +124,7 @@ graph TD
 - **Value Objects:** Введено строгую типизацию для `Email`, `RawPassword` и `HashedPassword` с проверками инвариантов на момент создания.
 - **Rich User Entity:** Модель `User` инкапсулирует бизнес-правила генерации и валидации password reset состояния, запрещая внешним сервисам менять состояние напрямую: `user.request_password_reset()` и `user.reset_password()`.
 - **Ports & Adapters:** Слой инфраструктуры имплементирует абстракции (порты), определенные в Application layer (`UserRepository`, `PasswordHasher`).
+- **Bounded Contexts:** Явные границы контекстов вынесены в [docs/architecture/bounded-contexts.md](/Users/aiezq/python_pr/engineer-challenge/docs/architecture/bounded-contexts.md).
 
 ### 2. Command Query Responsibility Segregation (CQRS)
 - **Read/Write разделение:** Логика разделена на команды (изменение состояния: регистрация, выдача токенов) и запросы (получение данных).
@@ -129,6 +133,18 @@ graph TD
 
 ### 3. Infrastructure as Code (IaC)
 - Инфраструктура полностью описана в `docker-compose.yml`, который поднимает PostgreSQL с healthcheck-ами и Redis для rate-limiting.
+
+### Ключевые инварианты и бизнес-правила
+- Email нормализуется и валидируется в Domain Layer.
+- Пароль обязан удовлетворять policy: минимум 12 символов, uppercase, lowercase, digit, без пробелов по краям.
+- Reset token хранится только в hashed-виде, имеет срок жизни и инвалидируется после успешного reset.
+- `register`, `authenticate`, `requestPasswordReset`, `resetPassword` и `validateResetToken` ограничены rate limiting.
+- В `development/test` password reset flow demo-friendly: backend возвращает preview reset-link, в `production` этот preview отключен.
+
+### Observability
+- В приложении подключен structured JSON logging через `structlog`.
+- Добавлен HTTP middleware, логирующий `request_id`, путь, метод, статус и длительность запроса.
+- Auth-события логируются как отдельные доменные события (`user_registered`, `authentication_succeeded`, `password_reset_requested`, `password_reset_completed`).
 
 ---
 
@@ -139,6 +155,14 @@ graph TD
 3. **Отсутствие асинхронной шины (Event Bus):** В "чистом" DDD после `user.request_password_reset()` публикуется доменное событие (Domain Event), а хендлер отправляет письмо через RabbitMQ/Kafka. Для простоты здесь это опущено, но заложен в архитектуру.
 4. **BFF вместо прямого хранения токена в браузере:** Access token сохраняется в `httpOnly` cookie через Next.js route handler и проксируется в backend через `/api/graphql`. Это безопаснее `localStorage`, но делает frontend частью auth-контура.
 5. **Rate limiting fail-open только вне production:** В `development` и `test` auth/reset endpoint-ы переживают недоступность Redis, но в `production` такая ситуация должна приводить к `503`, а не к тихому отключению ограничения.
+
+Отдельные ADR:
+- [docs/adr/0001-graphql-over-grpc.md](/Users/aiezq/python_pr/engineer-challenge/docs/adr/0001-graphql-over-grpc.md)
+- [docs/adr/0002-bff-cookie-auth.md](/Users/aiezq/python_pr/engineer-challenge/docs/adr/0002-bff-cookie-auth.md)
+
+## Moodboard Materials
+- [docs/moodboard.md](/Users/aiezq/python_pr/engineer-challenge/docs/moodboard.md)
+- [docs/anti-moodboard.md](/Users/aiezq/python_pr/engineer-challenge/docs/anti-moodboard.md)
 
 ---
 

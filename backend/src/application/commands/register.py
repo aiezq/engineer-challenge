@@ -3,6 +3,7 @@ from src.domain.user import User
 from src.domain.value_objects import Email, RawPassword, HashedPassword
 from src.domain.exceptions import UserAlreadyExistsError
 from src.application.ports import UserRepository, PasswordHasher
+from src.infrastructure.observability.logger import log
 
 @dataclass
 class RegisterUserCommand:
@@ -26,4 +27,5 @@ class RegisterUserHandler:
         user = User.create(email=email, password_hash=hashed_pwd)
         
         await self._user_repo.save(user)
+        log.info("user_registered", user_id=str(user.id))
         return user

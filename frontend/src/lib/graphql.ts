@@ -39,7 +39,11 @@ export const REQUEST_RESET_MUTATION = gql`
   mutation RequestPasswordReset($email: String!) {
     requestPasswordReset(input: {
       email: $email
-    })
+    }) {
+      ok
+      deliveryMode
+      resetUrlPreview
+    }
   }
 `;
 

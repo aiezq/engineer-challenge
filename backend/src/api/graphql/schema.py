@@ -4,7 +4,7 @@ from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from strawberry.types import Info
 from .types import (
-    UserType, AuthResultType, RegisterUserInput, 
+    UserType, AuthResultType, PasswordResetRequestResultType, RegisterUserInput, 
     AuthenticateInput, RequestResetInput, ResetPasswordInput
 )
 from .context import GraphQLContext, build_context
@@ -115,14 +115,27 @@ class Mutation:
             return AuthResultType(access_token=result.access_token, user_id=result.user_id)
 
     @strawberry.mutation
-    async def request_password_reset(self, info: Info[GraphQLContext, None], input: RequestResetInput) -> bool:
+    async def request_password_reset(
+        self,
+        info: Info[GraphQLContext, None],
+        input: RequestResetInput,
+    ) -> PasswordResetRequestResultType:
         await rate_limit(info.context["request"], limit=5, window=60, key_suffix="request_password_reset")
         async with AsyncSessionLocal() as session:
             repo = get_user_repo(session)
-            handler = RequestPasswordResetHandler(repo, token_service)
-            await handler.handle(RequestPasswordResetCommand(email=input.email))
+            handler = RequestPasswordResetHandler(
+                repo,
+                token_service,
+                app_base_url=settings.app_base_url,
+                preview_enabled=settings.app_env != "production",
+            )
+            result = await handler.handle(RequestPasswordResetCommand(email=input.email))
             await session.commit()
-            return True
+            return PasswordResetRequestResultType(
+                ok=result.ok,
+                delivery_mode=result.delivery_mode,
+                reset_url_preview=result.reset_url_preview,
+            )
 
     @strawberry.mutation
     async def reset_password(self, info: Info[GraphQLContext, None], input: ResetPasswordInput) -> bool:

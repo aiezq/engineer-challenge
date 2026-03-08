@@ -51,6 +51,7 @@ class Settings:
     app_env: str
     database_url: str
     redis_url: str
+    app_base_url: str
     jwt_secret_key: str
     jwt_algorithm: str
     access_token_expire_minutes: int
@@ -71,6 +72,7 @@ def get_settings() -> Settings:
             "postgresql+asyncpg://orbitto_user:orbitto_password@localhost:5432/orbitto_db",
         ),
         redis_url=os.getenv("REDIS_URL", "redis://localhost:6379"),
+        app_base_url=os.getenv("APP_BASE_URL", "http://localhost:3000"),
         jwt_secret_key=_resolve_jwt_secret_key(app_env),
         jwt_algorithm=os.getenv("JWT_ALGORITHM", "HS256"),
         access_token_expire_minutes=int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30")),

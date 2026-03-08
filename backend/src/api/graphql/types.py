@@ -1,4 +1,5 @@
 import strawberry
+from typing import Optional
 
 @strawberry.type
 class UserType:
@@ -11,6 +12,12 @@ class UserType:
 class AuthResultType:
     access_token: str
     user_id: str
+
+@strawberry.type
+class PasswordResetRequestResultType:
+    ok: bool
+    delivery_mode: str
+    reset_url_preview: Optional[str]
 
 @strawberry.input
 class RegisterUserInput:

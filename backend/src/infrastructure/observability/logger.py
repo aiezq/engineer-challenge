@@ -1,6 +1,8 @@
 import structlog
+from structlog.typing import FilteringBoundLogger
 
-def setup_logging():
+
+def setup_logging() -> None:
     structlog.configure(
         processors=[
             structlog.contextvars.merge_contextvars,
@@ -14,4 +16,4 @@ def setup_logging():
         cache_logger_on_first_use=True,
     )
 
-log = structlog.get_logger()
+log: FilteringBoundLogger = structlog.get_logger()
