@@ -68,7 +68,18 @@ class Query:
     @strawberry.field
     async def me(self, info: Info[GraphQLContext, None]) -> Optional[UserType]:
         current_user_id = _require_current_user_id(info)
-        return await self.get_user(info, current_user_id)
+        async with AsyncSessionLocal() as session:
+            repo = get_user_read_repo(session)
+            handler = GetUserByIdHandler(repo)
+            result = await handler.handle(GetUserByIdQuery(user_id=current_user_id))
+            if result:
+                return UserType(
+                    id=result.id,
+                    email=result.email,
+                    is_active=result.is_active,
+                    created_at=result.created_at,
+                )
+            return None
 
     @strawberry.field
     async def validate_reset_token(self, token: str) -> bool:
