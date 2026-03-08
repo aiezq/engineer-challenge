@@ -23,9 +23,7 @@ export default function ForgotPasswordPage() {
         requestReset({ variables: { email } });
     }
 
-    // Handle the GraphQL error gracefully for the "account not found" specific UI case
-    const isAccountNotFoundError = error?.message.includes("not found") || error?.message.includes("Нет аккаунтов");
-    const errorMessage = isAccountNotFoundError ? "Нет аккаунтов с таким e-mail" : (error ? "Произошла ошибка, попробуйте снова" : "");
+    const errorMessage = error ? "Не удалось отправить письмо, попробуйте снова" : "";
 
     if (submitted) {
         return (

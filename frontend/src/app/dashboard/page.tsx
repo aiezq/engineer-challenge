@@ -1,7 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
+import { useQuery } from "@apollo/client";
 import { useRouter } from "next/navigation";
+import { ME_QUERY } from "@/lib/graphql";
 
 // Mock data generator based on the screenshot
 const generateMockData = (bankName: string, bankColor: string) => {
@@ -24,11 +26,33 @@ const mockGroups = [
 
 export default function DashboardPage() {
     const router = useRouter();
+    const { data, loading, error } = useQuery(ME_QUERY, {
+        fetchPolicy: "network-only",
+    });
 
-    const handleLogout = () => {
-        localStorage.removeItem("token");
-        router.push("/login");
+    useEffect(() => {
+        if (error) {
+            router.replace("/login");
+        }
+    }, [error, router]);
+
+    const handleLogout = async () => {
+        await fetch("/api/auth/logout", { method: "POST" });
+        router.replace("/login");
+        router.refresh();
     };
+
+    if (loading) {
+        return (
+            <div className="flex flex-1 items-center justify-center bg-[#f8f9fc] text-sm text-gray-500">
+                Загружаем данные аккаунта...
+            </div>
+        );
+    }
+
+    if (!data?.me) {
+        return null;
+    }
 
     return (
         <div className="flex-1 overflow-y-auto bg-[#f8f9fc]">
@@ -50,7 +74,7 @@ export default function DashboardPage() {
                     <div className="relative group">
                         <div className="flex items-center gap-2 cursor-pointer pb-2 -mb-2">
                             <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-500">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                                <span className="text-xs font-semibold uppercase">{data.me.email[0]}</span>
                             </div>
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400 group-hover:rotate-180 transition-transform duration-200"><path d="m6 9 6 6 6-6" /></svg>
                         </div>
@@ -58,6 +82,9 @@ export default function DashboardPage() {
                         {/* Dropdown Menu */}
                         <div className="absolute right-0 top-full pt-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                             <div className="w-48 bg-white border border-gray-100 rounded-lg shadow-lg py-1 overflow-hidden">
+                                <div className="px-4 py-3 text-xs text-gray-500 border-b border-gray-100">
+                                    {data.me.email}
+                                </div>
                                 <button
                                     onClick={handleLogout}
                                     className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"

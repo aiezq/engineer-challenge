@@ -1,28 +1,47 @@
 "use client";
 
-import { useState } from "react";
-import { useMutation } from "@apollo/client";
-import { RESET_PASSWORD_MUTATION } from "@/lib/graphql";
-import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery } from "@apollo/client";
+import { RESET_PASSWORD_MUTATION, VALIDATE_RESET_TOKEN_QUERY } from "@/lib/graphql";
+import { useRouter, useSearchParams } from "next/navigation";
 import AuthLayout from "@/components/AuthLayout";
 
 export default function ResetPasswordPage() {
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
-    const [token, setToken] = useState("test-token"); // Normally extract from URL search params
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const token = searchParams.get("token") ?? "";
 
     const [resetPassword, { loading, error: gqlError }] = useMutation(RESET_PASSWORD_MUTATION, {
         onCompleted: () => {
             router.push("/login?reset=success");
         }
     });
+    const { data, loading: tokenLoading } = useQuery(VALIDATE_RESET_TOKEN_QUERY, {
+        variables: { token },
+        skip: !token,
+        fetchPolicy: "network-only",
+    });
 
     const [validationError, setValidationError] = useState("");
+    const tokenError = useMemo(() => {
+        if (!token) {
+            return "Ссылка для сброса пароля неполная";
+        }
+        if (!tokenLoading && data?.validateResetToken === false) {
+            return "Неверный или просроченный токен";
+        }
+        return "";
+    }, [data?.validateResetToken, token, tokenLoading]);
 
     const onSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         setValidationError("");
+        if (tokenError) {
+            setValidationError(tokenError);
+            return;
+        }
         if (password !== confirmPassword) {
             setValidationError("Пароли не совпадают");
             return;
@@ -30,7 +49,7 @@ export default function ResetPasswordPage() {
         resetPassword({ variables: { token, newPassword: password } });
     }
 
-    const errorMessage = validationError || (gqlError ? "Неверный или просроченный токен" : "");
+    const errorMessage = validationError || tokenError || (gqlError ? "Неверный или просроченный токен" : "");
 
     return (
         <AuthLayout
@@ -87,7 +106,7 @@ export default function ResetPasswordPage() {
                     </div>
 
                     <div className="pt-2">
-                        <button type="submit" disabled={loading} className="btn-primary">
+                        <button type="submit" disabled={loading || tokenLoading || Boolean(tokenError)} className="btn-primary">
                             {loading ? "Сохранение..." : "Сохранить и войти"}
                         </button>
                     </div>

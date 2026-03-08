@@ -8,6 +8,7 @@ from .types import (
 )
 from .context import GraphQLContext, build_context
 from src.application.queries.get_user import GetUserByIdQuery, GetUserByIdHandler
+from src.application.queries.validate_reset_token import ValidateResetTokenHandler, ValidateResetTokenQuery
 from src.application.commands.register import RegisterUserCommand, RegisterUserHandler
 from src.application.commands.authenticate import AuthenticateCommand, AuthenticateHandler
 from src.application.commands.password_reset import (
@@ -68,6 +69,13 @@ class Query:
     async def me(self, info: Info[GraphQLContext, None]) -> Optional[UserType]:
         current_user_id = _require_current_user_id(info)
         return await self.get_user(info, current_user_id)
+
+    @strawberry.field
+    async def validate_reset_token(self, token: str) -> bool:
+        async with AsyncSessionLocal() as session:
+            repo = get_user_read_repo(session)
+            handler = ValidateResetTokenHandler(repo)
+            return await handler.handle(ValidateResetTokenQuery(token=token))
 
 @strawberry.type
 class Mutation:

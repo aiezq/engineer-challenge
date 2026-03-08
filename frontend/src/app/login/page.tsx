@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation } from "@apollo/client";
-import { LOGIN_MUTATION } from "@/lib/graphql";
 import { useRouter } from "next/navigation";
 import AuthLayout from "@/components/AuthLayout";
 import Link from "next/link";
@@ -10,18 +8,37 @@ import Link from "next/link";
 export default function LoginPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState("");
     const router = useRouter();
 
-    const [login, { loading, error }] = useMutation(LOGIN_MUTATION, {
-        onCompleted: (data) => {
-            localStorage.setItem("token", data.authenticate.accessToken);
-            router.push("/dashboard");
-        }
-    });
-
-    const onSubmit = (e: React.FormEvent) => {
+    const onSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        login({ variables: { email, password } });
+        setError("");
+        setIsSubmitting(true);
+
+        try {
+            const response = await fetch("/api/auth/login", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ email, password }),
+            });
+
+            const payload = await response.json();
+            if (!response.ok) {
+                setError(payload.error || "Введены неверные данные");
+                return;
+            }
+
+            router.replace("/dashboard");
+            router.refresh();
+        } catch {
+            setError("Не удалось выполнить вход");
+        } finally {
+            setIsSubmitting(false);
+        }
     }
 
     return (
@@ -87,8 +104,8 @@ export default function LoginPage() {
                     </div>
 
                     <div className="pt-2">
-                        <button type="submit" disabled={loading} className="btn-primary">
-                            {loading ? "Вход..." : "Войти"}
+                        <button type="submit" disabled={isSubmitting} className="btn-primary">
+                            {isSubmitting ? "Вход..." : "Войти"}
                         </button>
                     </div>
 

@@ -12,6 +12,17 @@ export const LOGIN_MUTATION = gql`
   }
 `;
 
+export const ME_QUERY = gql`
+  query Me {
+    me {
+      id
+      email
+      isActive
+      createdAt
+    }
+  }
+`;
+
 export const REGISTER_MUTATION = gql`
   mutation Register($email: String!, $password: String!) {
     register(input: {
@@ -29,6 +40,12 @@ export const REQUEST_RESET_MUTATION = gql`
     requestPasswordReset(input: {
       email: $email
     })
+  }
+`;
+
+export const VALIDATE_RESET_TOKEN_QUERY = gql`
+  query ValidateResetToken($token: String!) {
+    validateResetToken(token: $token)
   }
 `;
 
