@@ -37,5 +37,9 @@ class TokenService(ABC):
         pass
 
     @abstractmethod
+    def decode_token(self, token: str) -> dict:
+        pass
+
+    @abstractmethod
     def generate_reset_token(self) -> str:
         pass

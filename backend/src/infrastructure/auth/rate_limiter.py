@@ -5,9 +5,9 @@ from src.config import get_settings
 settings = get_settings()
 redis_client = redis.from_url(settings.redis_url, decode_responses=True)
 
-async def rate_limit(request: Request, limit: int = 10, window: int = 60):
+async def rate_limit(request: Request, limit: int = 10, window: int = 60, key_suffix: str = ""):
     client_ip = request.client.host
-    endpoint = request.url.path
+    endpoint = key_suffix or request.url.path
     key = f"rate_limit:{client_ip}:{endpoint}"
     
     current_count = await redis_client.incr(key)

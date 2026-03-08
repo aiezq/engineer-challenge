@@ -1,9 +1,12 @@
 import strawberry
 from typing import Optional
+from fastapi import Request
+from strawberry.types import Info
 from .types import (
     UserType, AuthResultType, RegisterUserInput, 
     AuthenticateInput, RequestResetInput, ResetPasswordInput
 )
+from .context import GraphQLContext, build_context
 from src.application.queries.get_user import GetUserByIdQuery, GetUserByIdHandler
 from src.application.commands.register import RegisterUserCommand, RegisterUserHandler
 from src.application.commands.authenticate import AuthenticateCommand, AuthenticateHandler
@@ -12,9 +15,11 @@ from src.application.commands.password_reset import (
     ResetPasswordCommand, ResetPasswordHandler
 )
 from src.config import get_settings
+from src.domain.exceptions import InvalidCredentialsError
 from src.infrastructure.db.database import AsyncSessionLocal
 from src.infrastructure.db.repository import SqlAlchemyUserReadRepository, SqlAlchemyUserRepository
 from src.infrastructure.auth.password_hasher import BcryptPasswordHasher
+from src.infrastructure.auth.rate_limiter import rate_limit
 from src.infrastructure.auth.token_service import JwtTokenService
 
 # Quick dependency injection helpers for simplicity
@@ -33,10 +38,21 @@ token_service = JwtTokenService(
     access_token_expire_minutes=settings.access_token_expire_minutes,
 )
 
+
+def _require_current_user_id(info: Info[GraphQLContext, None]) -> str:
+    current_user_id = info.context.current_user_id
+    if not current_user_id:
+        raise InvalidCredentialsError("Authentication required")
+    return current_user_id
+
 @strawberry.type
 class Query:
     @strawberry.field
-    async def get_user(self, user_id: str) -> Optional[UserType]:
+    async def get_user(self, info: Info[GraphQLContext, None], user_id: str) -> Optional[UserType]:
+        current_user_id = _require_current_user_id(info)
+        if current_user_id != user_id:
+            raise InvalidCredentialsError("Forbidden")
+
         async with AsyncSessionLocal() as session:
             repo = get_user_read_repo(session)
             handler = GetUserByIdHandler(repo)
@@ -48,10 +64,16 @@ class Query:
                 )
             return None
 
+    @strawberry.field
+    async def me(self, info: Info[GraphQLContext, None]) -> Optional[UserType]:
+        current_user_id = _require_current_user_id(info)
+        return await self.get_user(info, current_user_id)
+
 @strawberry.type
 class Mutation:
     @strawberry.mutation
-    async def register(self, input: RegisterUserInput) -> UserType:
+    async def register(self, info: Info[GraphQLContext, None], input: RegisterUserInput) -> UserType:
+        await rate_limit(info.context.request, limit=5, window=60, key_suffix="register")
         async with AsyncSessionLocal() as session:
             repo = get_user_repo(session)
             handler = RegisterUserHandler(repo, hasher)
@@ -63,7 +85,8 @@ class Mutation:
             )
 
     @strawberry.mutation
-    async def authenticate(self, input: AuthenticateInput) -> AuthResultType:
+    async def authenticate(self, info: Info[GraphQLContext, None], input: AuthenticateInput) -> AuthResultType:
+        await rate_limit(info.context.request, limit=5, window=60, key_suffix="authenticate")
         async with AsyncSessionLocal() as session:
             repo = get_user_repo(session)
             handler = AuthenticateHandler(repo, hasher, token_service)
@@ -71,7 +94,8 @@ class Mutation:
             return AuthResultType(access_token=result.access_token, user_id=result.user_id)
 
     @strawberry.mutation
-    async def request_password_reset(self, input: RequestResetInput) -> bool:
+    async def request_password_reset(self, info: Info[GraphQLContext, None], input: RequestResetInput) -> bool:
+        await rate_limit(info.context.request, limit=5, window=60, key_suffix="request_password_reset")
         async with AsyncSessionLocal() as session:
             repo = get_user_repo(session)
             handler = RequestPasswordResetHandler(repo, token_service)
@@ -80,12 +104,17 @@ class Mutation:
             return True
 
     @strawberry.mutation
-    async def reset_password(self, input: ResetPasswordInput) -> bool:
+    async def reset_password(self, info: Info[GraphQLContext, None], input: ResetPasswordInput) -> bool:
+        await rate_limit(info.context.request, limit=5, window=60, key_suffix="reset_password")
         async with AsyncSessionLocal() as session:
             repo = get_user_repo(session)
             handler = ResetPasswordHandler(repo, hasher)
             await handler.handle(ResetPasswordCommand(token=input.token, new_password=input.new_password))
             await session.commit()
             return True
+
+
+async def get_context(request: Request) -> GraphQLContext:
+    return await build_context(request, token_service)
 
 schema = strawberry.Schema(query=Query, mutation=Mutation)

@@ -1,7 +1,9 @@
 import jwt
 import secrets
 from datetime import datetime, timedelta, timezone
+from jwt import InvalidTokenError
 from src.domain.user import User
+from src.domain.exceptions import InvalidCredentialsError
 from src.application.ports import TokenService
 
 class JwtTokenService(TokenService):
@@ -20,6 +22,12 @@ class JwtTokenService(TokenService):
         
         encoded_jwt = jwt.encode(to_encode, self._secret_key, algorithm=self._algorithm)
         return encoded_jwt
+
+    def decode_token(self, token: str) -> dict:
+        try:
+            return jwt.decode(token, self._secret_key, algorithms=[self._algorithm])
+        except InvalidTokenError as exc:
+            raise InvalidCredentialsError("Invalid access token") from exc
 
     def generate_reset_token(self) -> str:
         return secrets.token_urlsafe(32)
