@@ -6,6 +6,37 @@ import { RESET_PASSWORD_MUTATION, VALIDATE_RESET_TOKEN_QUERY } from "@/lib/graph
 import { useRouter, useSearchParams } from "next/navigation";
 import AuthLayout from "@/components/AuthLayout";
 
+const PASSWORD_HINT =
+    "Минимум 12 символов, по одной заглавной, строчной букве и цифре, без пробелов по краям.";
+
+function getResetErrorMessage(message: string | undefined): string {
+    if (!message) {
+        return "";
+    }
+    if (message.includes("Invalid token") || message.includes("expired")) {
+        return "Неверный или просроченный токен";
+    }
+    if (message.includes("at least 12 characters")) {
+        return "Пароль должен быть не короче 12 символов";
+    }
+    if (message.includes("uppercase")) {
+        return "Пароль должен содержать хотя бы одну заглавную букву";
+    }
+    if (message.includes("lowercase")) {
+        return "Пароль должен содержать хотя бы одну строчную букву";
+    }
+    if (message.includes("digit")) {
+        return "Пароль должен содержать хотя бы одну цифру";
+    }
+    if (message.includes("longer than 72")) {
+        return "Пароль не должен быть длиннее 72 символов";
+    }
+    if (message.includes("whitespace")) {
+        return "Пароль не должен начинаться или заканчиваться пробелом";
+    }
+    return "Не удалось обновить пароль";
+}
+
 export default function ResetPasswordPage() {
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
@@ -46,10 +77,14 @@ export default function ResetPasswordPage() {
             setValidationError("Пароли не совпадают");
             return;
         }
+        if (password !== password.trim()) {
+            setValidationError("Пароль не должен начинаться или заканчиваться пробелом");
+            return;
+        }
         resetPassword({ variables: { token, newPassword: password } });
     }
 
-    const errorMessage = validationError || tokenError || (gqlError ? "Неверный или просроченный токен" : "");
+    const errorMessage = validationError || tokenError || getResetErrorMessage(gqlError?.message);
 
     return (
         <AuthLayout
@@ -81,6 +116,7 @@ export default function ResetPasswordPage() {
                                     required
                                 />
                             </div>
+                            <p className="mt-2 text-xs text-gray-400">{PASSWORD_HINT}</p>
                         </div>
 
                         <div className="input-group">

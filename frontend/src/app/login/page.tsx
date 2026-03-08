@@ -5,6 +5,16 @@ import { useRouter } from "next/navigation";
 import AuthLayout from "@/components/AuthLayout";
 import Link from "next/link";
 
+function getLoginErrorMessage(status: number, fallback: string | undefined): string {
+    if (status === 429) {
+        return "Слишком много попыток входа. Попробуйте позже";
+    }
+    if (status === 502 || status === 503) {
+        return "Сервис авторизации временно недоступен";
+    }
+    return fallback || "Введены неверные данные";
+}
+
 export default function LoginPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -28,14 +38,14 @@ export default function LoginPage() {
 
             const payload = await response.json();
             if (!response.ok) {
-                setError(payload.error || "Введены неверные данные");
+                setError(getLoginErrorMessage(response.status, payload.error));
                 return;
             }
 
             router.replace("/dashboard");
             router.refresh();
         } catch {
-            setError("Не удалось выполнить вход");
+            setError("Сервис авторизации временно недоступен");
         } finally {
             setIsSubmitting(false);
         }
@@ -99,7 +109,7 @@ export default function LoginPage() {
                                     </button>
                                 )}
                             </div>
-                            {error && <p className="input-error-text">Введены неверные данные</p>}
+                            {error && <p className="input-error-text">{error}</p>}
                         </div>
                     </div>
 

@@ -7,6 +7,40 @@ import { useRouter } from "next/navigation";
 import AuthLayout from "@/components/AuthLayout";
 import Link from "next/link";
 
+const PASSWORD_HINT =
+    "Минимум 12 символов, по одной заглавной, строчной букве и цифре, без пробелов по краям.";
+
+function getRegisterErrorMessage(message: string | undefined): string {
+    if (!message) {
+        return "";
+    }
+    if (message.includes("already exists")) {
+        return "Этот e-mail уже зарегистрирован";
+    }
+    if (message.includes("Invalid email")) {
+        return "Введите корректный e-mail";
+    }
+    if (message.includes("at least 12 characters")) {
+        return "Пароль должен быть не короче 12 символов";
+    }
+    if (message.includes("uppercase")) {
+        return "Пароль должен содержать хотя бы одну заглавную букву";
+    }
+    if (message.includes("lowercase")) {
+        return "Пароль должен содержать хотя бы одну строчную букву";
+    }
+    if (message.includes("digit")) {
+        return "Пароль должен содержать хотя бы одну цифру";
+    }
+    if (message.includes("longer than 72")) {
+        return "Пароль не должен быть длиннее 72 символов";
+    }
+    if (message.includes("whitespace")) {
+        return "Пароль не должен начинаться или заканчиваться пробелом";
+    }
+    return "Не удалось завершить регистрацию, попробуйте еще раз";
+}
+
 export default function RegisterPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -28,13 +62,15 @@ export default function RegisterPage() {
             setValidationError("Пароли не совпадают");
             return;
         }
+        if (password !== password.trim()) {
+            setValidationError("Пароль не должен начинаться или заканчиваться пробелом");
+            return;
+        }
         register({ variables: { email, password } });
     }
 
-    // Display error message correctly
     const errorMessage = validationError
-        || (gqlError?.message.includes("already exists") ? "Данный адрес уже занят" : "")
-        || (gqlError ? "Не удалось завершить регистрацию, попробуйте еще раз" : "");
+        || getRegisterErrorMessage(gqlError?.message);
 
     return (
         <AuthLayout
@@ -92,6 +128,7 @@ export default function RegisterPage() {
                                     </button>
                                 )}
                             </div>
+                            <p className="mt-2 text-xs text-gray-400">{PASSWORD_HINT}</p>
                         </div>
 
                         {/* Confirm Password Field */}

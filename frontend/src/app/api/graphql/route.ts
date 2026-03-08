@@ -13,12 +13,20 @@ export async function POST(request: NextRequest) {
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const upstream = await fetch(GRAPHQL_API_URL, {
-    method: "POST",
-    headers,
-    body,
-    cache: "no-store",
-  });
+  let upstream: Response;
+  try {
+    upstream = await fetch(GRAPHQL_API_URL, {
+      method: "POST",
+      headers,
+      body,
+      cache: "no-store",
+    });
+  } catch {
+    return NextResponse.json(
+      { errors: [{ message: "GraphQL backend unavailable" }] },
+      { status: 503 },
+    );
+  }
 
   const payload = await upstream.text();
 

@@ -28,3 +28,11 @@ class TokenServiceTests(unittest.TestCase):
 
         with self.assertRaises(InvalidCredentialsError):
             service.decode_token("not-a-valid-jwt")
+
+    def test_hash_reset_token_is_deterministic_and_not_raw(self) -> None:
+        service = JwtTokenService(secret_key="test-secret")
+
+        hashed_token = service.hash_reset_token("plain-reset-token")
+
+        self.assertEqual(hashed_token, service.hash_reset_token("plain-reset-token"))
+        self.assertNotEqual(hashed_token, "plain-reset-token")

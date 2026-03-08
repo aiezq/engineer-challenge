@@ -1,8 +1,14 @@
-"use client";
-
 import Link from "next/link";
+import { ReactNode } from "react";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { ACCESS_TOKEN_COOKIE } from "@/lib/server/backend";
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default async function DashboardLayout({ children }: { children: ReactNode }) {
+    const cookieStore = await cookies();
+    if (!cookieStore.get(ACCESS_TOKEN_COOKIE)?.value) {
+        redirect("/login");
+    }
 
     const navItems = [
         { name: "Внутри биржи", href: "/dashboard", active: true },

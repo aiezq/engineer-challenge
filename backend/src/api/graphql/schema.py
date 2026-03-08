@@ -83,10 +83,11 @@ class Query:
             return None
 
     @strawberry.field
-    async def validate_reset_token(self, token: str) -> bool:
+    async def validate_reset_token(self, info: Info[GraphQLContext, None], token: str) -> bool:
+        await rate_limit(info.context["request"], limit=10, window=60, key_suffix="validate_reset_token")
         async with AsyncSessionLocal() as session:
             repo = get_user_read_repo(session)
-            handler = ValidateResetTokenHandler(repo)
+            handler = ValidateResetTokenHandler(repo, token_service)
             return await handler.handle(ValidateResetTokenQuery(token=token))
 
 @strawberry.type
@@ -128,7 +129,7 @@ class Mutation:
         await rate_limit(info.context["request"], limit=5, window=60, key_suffix="reset_password")
         async with AsyncSessionLocal() as session:
             repo = get_user_repo(session)
-            handler = ResetPasswordHandler(repo, hasher)
+            handler = ResetPasswordHandler(repo, hasher, token_service)
             await handler.handle(ResetPasswordCommand(token=input.token, new_password=input.new_password))
             await session.commit()
             return True

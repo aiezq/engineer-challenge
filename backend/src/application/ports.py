@@ -49,3 +49,7 @@ class TokenService(ABC):
     @abstractmethod
     def generate_reset_token(self) -> str:
         pass
+
+    @abstractmethod
+    def hash_reset_token(self, token: str) -> str:
+        pass

@@ -1,4 +1,5 @@
 import asyncio
+import unittest
 from fastapi import Request
 from starlette.types import Scope
 from src.api.graphql.context import build_context, extract_bearer_token
@@ -23,6 +24,9 @@ class StubTokenService(TokenService):
     def generate_reset_token(self) -> str:
         raise NotImplementedError
 
+    def hash_reset_token(self, token: str) -> str:
+        return token
+
 
 def make_request(headers: dict[str, str] | None = None) -> Request:
     raw_headers = [
@@ -40,25 +44,24 @@ def make_request(headers: dict[str, str] | None = None) -> Request:
     return Request(scope)
 
 
-def test_extract_bearer_token_returns_none_for_non_bearer_header():
-    request = make_request({"Authorization": "Basic abc"})
+class GraphQLContextTests(unittest.TestCase):
+    def test_extract_bearer_token_returns_none_for_non_bearer_header(self) -> None:
+        request = make_request({"Authorization": "Basic abc"})
 
-    assert extract_bearer_token(request) is None
+        self.assertIsNone(extract_bearer_token(request))
 
+    def test_build_context_reads_user_id_from_valid_token(self) -> None:
+        request = make_request({"Authorization": "Bearer valid-token"})
+        token_service = StubTokenService(payload={"sub": "user-123"})
 
-def test_build_context_reads_user_id_from_valid_token() -> None:
-    request = make_request({"Authorization": "Bearer valid-token"})
-    token_service = StubTokenService(payload={"sub": "user-123"})
+        context = asyncio.run(build_context(request, token_service))
 
-    context = asyncio.run(build_context(request, token_service))
+        self.assertEqual(context["current_user_id"], "user-123")
 
-    assert context["current_user_id"] == "user-123"
+    def test_build_context_ignores_invalid_token(self) -> None:
+        request = make_request({"Authorization": "Bearer invalid-token"})
+        token_service = StubTokenService(error=InvalidCredentialsError("Invalid access token"))
 
+        context = asyncio.run(build_context(request, token_service))
 
-def test_build_context_ignores_invalid_token() -> None:
-    request = make_request({"Authorization": "Bearer invalid-token"})
-    token_service = StubTokenService(error=InvalidCredentialsError("Invalid access token"))
-
-    context = asyncio.run(build_context(request, token_service))
-
-    assert context["current_user_id"] is None
+        self.assertIsNone(context["current_user_id"])

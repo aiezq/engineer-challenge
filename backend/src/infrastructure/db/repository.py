@@ -20,7 +20,7 @@ class SqlAlchemyUserRepository(UserRepository):
             password_hash=HashedPassword(model.password_hash),
             is_active=model.is_active,
             created_at=model.created_at,
-            reset_token=model.reset_token,
+            reset_token_hash=model.reset_token_hash,
             reset_token_expires_at=model.reset_token_expires_at
         )
 
@@ -38,7 +38,7 @@ class SqlAlchemyUserRepository(UserRepository):
         return self.to_domain(model) if model else None
 
     async def get_by_reset_token(self, token: str) -> Optional[User]:
-        result = await self._session.execute(select(UserModel).where(UserModel.reset_token == token))
+        result = await self._session.execute(select(UserModel).where(UserModel.reset_token_hash == token))
         model = result.scalar_one_or_none()
         return self.to_domain(model) if model else None
 
@@ -52,7 +52,7 @@ class SqlAlchemyUserRepository(UserRepository):
         model.password_hash = str(user.password_hash.value)
         model.is_active = user.is_active
         model.created_at = user.created_at
-        model.reset_token = user.reset_token
+        model.reset_token_hash = user.reset_token_hash
         model.reset_token_expires_at = user.reset_token_expires_at
 
         await self._session.flush()
@@ -75,7 +75,7 @@ class SqlAlchemyUserReadRepository(UserReadRepository):
         )
 
     async def is_reset_token_valid(self, token: str) -> bool:
-        result = await self._session.execute(select(UserModel).where(UserModel.reset_token == token))
+        result = await self._session.execute(select(UserModel).where(UserModel.reset_token_hash == token))
         model = result.scalar_one_or_none()
         if not model:
             return False
