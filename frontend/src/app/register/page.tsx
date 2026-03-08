@@ -32,7 +32,9 @@ export default function RegisterPage() {
     }
 
     // Display error message correctly
-    const errorMessage = validationError || (gqlError?.message.includes("already exists") ? "Данный адрес уже занят" : gqlError?.message);
+    const errorMessage = validationError
+        || (gqlError?.message.includes("already exists") ? "Данный адрес уже занят" : "")
+        || (gqlError ? "Не удалось завершить регистрацию, попробуйте еще раз" : "");
 
     return (
         <AuthLayout
@@ -60,10 +62,10 @@ export default function RegisterPage() {
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 placeholder={email ? "" : "Введите e-mail"}
-                                className={`input-field ${errorMessage?.includes('адрес') ? 'error' : ''}`}
+                                className={`input-field ${errorMessage ? 'error' : ''}`}
                                 required
                             />
-                            {errorMessage?.includes('адрес') && <p className="input-error-text">{errorMessage}</p>}
+                            {errorMessage && <p className="input-error-text">{errorMessage}</p>}
                         </div>
 
                         {/* Password Field */}
@@ -81,7 +83,7 @@ export default function RegisterPage() {
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     placeholder={password ? "" : "Введите пароль"}
-                                    className={`input-field pr-10 ${(validationError || errorMessage?.includes('Пароль')) ? 'error' : ''}`}
+                                    className={`input-field pr-10 ${errorMessage ? 'error' : ''}`}
                                     required
                                 />
                                 {password && (
