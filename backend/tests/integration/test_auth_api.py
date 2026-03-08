@@ -1,6 +1,6 @@
 import unittest
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Protocol, cast
 from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
@@ -10,6 +10,38 @@ from src.application.queries.ports import UserReadModel
 from src.domain.user import User
 from src.domain.value_objects import Email, HashedPassword
 from src.main import app
+
+
+class ResponseLike(Protocol):
+    status_code: int
+
+    def json(self) -> Any:
+        ...
+
+
+class ClientLike(Protocol):
+    def get(self, path: str) -> ResponseLike:
+        ...
+
+    def post(
+        self,
+        path: str,
+        *,
+        json: dict[str, object],
+        headers: dict[str, str],
+    ) -> ResponseLike:
+        ...
+
+    def close(self) -> None:
+        ...
+
+
+class PatchLike(Protocol):
+    def start(self) -> object:
+        ...
+
+    def stop(self) -> None:
+        ...
 
 
 class InMemoryUserRepo:
@@ -48,6 +80,9 @@ class InMemoryUserRepo:
             return False
         return user.reset_token_expires_at > datetime.now(timezone.utc)
 
+    def add_user(self, user: User) -> None:
+        self._users_by_id[str(user.id)] = user
+
 
 class DummySession:
     async def commit(self) -> None:
@@ -69,46 +104,68 @@ def make_session_context() -> DummySessionContext:
     return DummySessionContext()
 
 
+def _client_get(client: ClientLike, path: str) -> ResponseLike:
+    return client.get(path)
+
+
+def _client_post(
+    client: ClientLike,
+    path: str,
+    payload: dict[str, object],
+    headers: dict[str, str],
+) -> ResponseLike:
+    return client.post(path, json=payload, headers=headers)
+
+
 class AuthApiIntegrationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.repo = InMemoryUserRepo()
-        self.patches = [
+        self.patches: list[PatchLike] = [
             patch("src.main.init_db", new=AsyncMock(return_value=None)),
             patch("src.api.graphql.schema.AsyncSessionLocal", new=make_session_context),
-            patch("src.api.graphql.schema.get_user_repo", new=lambda session: self.repo),
-            patch("src.api.graphql.schema.get_user_read_repo", new=lambda session: self.repo),
+            patch("src.api.graphql.schema.get_user_repo", new=self._get_user_repo),
+            patch("src.api.graphql.schema.get_user_read_repo", new=self._get_user_read_repo),
             patch("src.api.graphql.schema.rate_limit", new=AsyncMock(return_value=None)),
         ]
         for active_patch in self.patches:
             active_patch.start()
 
-        self.client = TestClient(app)
+        self.client: ClientLike = cast(ClientLike, TestClient(app))
 
     def tearDown(self) -> None:
         self.client.close()
         for active_patch in reversed(self.patches):
             active_patch.stop()
 
+    def _get_user_repo(self, session: object) -> InMemoryUserRepo:
+        _ = session
+        return self.repo
+
+    def _get_user_read_repo(self, session: object) -> InMemoryUserRepo:
+        _ = session
+        return self.repo
+
     def graphql(
         self,
         query: str,
         variables: dict[str, object] | None = None,
         headers: dict[str, str] | None = None,
-    ) -> Any:
-        return self.client.post(
+    ) -> ResponseLike:
+        return _client_post(
+            self.client,
             "/graphql",
-            json={"query": query, "variables": variables or {}},
-            headers=headers or {},
+            {"query": query, "variables": variables or {}},
+            headers or {},
         )
 
     def create_user(self, email: str, password: str) -> User:
         hashed_password = graphql_schema.hasher.hash_password(password)
         user = User.create(email=Email(email), password_hash=HashedPassword(hashed_password))
-        self.repo._users_by_id[str(user.id)] = user
+        self.repo.add_user(user)
         return user
 
     def test_health_check_endpoint(self) -> None:
-        response = self.client.get("/health")
+        response = _client_get(self.client, "/health")
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok"})
