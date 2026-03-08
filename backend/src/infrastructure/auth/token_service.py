@@ -1,14 +1,21 @@
+import importlib
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, cast
-from jwt import InvalidTokenError, decode as jwt_decode, encode as jwt_encode
+from typing import Any, cast
+from jwt import InvalidTokenError
 from src.application.ports import TokenPayload, TokenService
 from src.domain.user import User
 from src.domain.exceptions import InvalidCredentialsError
 
+jwt_module: Any = importlib.import_module("jwt")
 
-JwtEncode = Callable[..., str]
-JwtDecode = Callable[..., dict[str, Any]]
+
+def _jwt_encode(payload: dict[str, object], key: str, algorithm: str) -> str:
+    return cast(str, jwt_module.encode(payload, key, algorithm=algorithm))
+
+
+def _jwt_decode(token: str, key: str, algorithms: list[str]) -> dict[str, object]:
+    return cast(dict[str, object], jwt_module.decode(token, key, algorithms=algorithms))
 
 class JwtTokenService(TokenService):
     def __init__(self, secret_key: str, algorithm: str = "HS256", access_token_expire_minutes: int = 30):
@@ -24,14 +31,12 @@ class JwtTokenService(TokenService):
         expire = datetime.now(timezone.utc) + timedelta(minutes=self._expires_in)
         to_encode["exp"] = expire
 
-        encode = cast(JwtEncode, jwt_encode)
-        encoded_jwt = encode(to_encode, self._secret_key, algorithm=self._algorithm)
+        encoded_jwt = _jwt_encode(to_encode, self._secret_key, self._algorithm)
         return encoded_jwt
 
     def decode_token(self, token: str) -> TokenPayload:
         try:
-            decode = cast(JwtDecode, jwt_decode)
-            payload = cast(dict[str, object], decode(token, self._secret_key, algorithms=[self._algorithm]))
+            payload = _jwt_decode(token, self._secret_key, [self._algorithm])
         except InvalidTokenError as exc:
             raise InvalidCredentialsError("Invalid access token") from exc
 
