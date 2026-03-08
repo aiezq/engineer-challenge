@@ -1,18 +1,17 @@
-import pytest
-from httpx import AsyncClient
+import unittest
+from fastapi.testclient import TestClient
 from src.main import app
 
-@pytest.mark.asyncio
-async def test_health_check_endpoint():
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        response = await ac.get("/health")
-    assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
 
-@pytest.mark.asyncio
-async def test_graphql_endpoint_exists():
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        # Introspection query to ensure API is up
+class AuthApiIntegrationTests(unittest.TestCase):
+    def test_health_check_endpoint(self) -> None:
+        with TestClient(app) as client:
+            response = client.get("/health")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"status": "ok"})
+
+    def test_graphql_endpoint_exists(self) -> None:
         query = """
         query {
           __schema {
@@ -20,7 +19,10 @@ async def test_graphql_endpoint_exists():
           }
         }
         """
-        response = await ac.post("/graphql", json={"query": query})
-    assert response.status_code == 200
+
+        with TestClient(app) as client:
+            response = client.post("/graphql", json={"query": query})
+
+        self.assertEqual(response.status_code, 200)
 
 # Other tests like DB integration require async fixture setup, skipped for brevity in this challenge.

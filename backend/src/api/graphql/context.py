@@ -9,7 +9,7 @@ class GraphQLContext(TypedDict):
     current_user_id: Optional[str]
 
 
-def _extract_bearer_token(request: Request) -> Optional[str]:
+def extract_bearer_token(request: Request) -> Optional[str]:
     authorization = request.headers.get("Authorization", "")
     scheme, _, token = authorization.partition(" ")
     if scheme.lower() != "bearer" or not token:
@@ -18,7 +18,7 @@ def _extract_bearer_token(request: Request) -> Optional[str]:
 
 
 async def build_context(request: Request, token_service: TokenService) -> GraphQLContext:
-    token = _extract_bearer_token(request)
+    token = extract_bearer_token(request)
     current_user_id = None
     if token:
         try:

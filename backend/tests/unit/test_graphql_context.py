@@ -1,17 +1,27 @@
+import asyncio
 from fastapi import Request
-from src.api.graphql.context import _extract_bearer_token, build_context
+from starlette.types import Scope
+from src.api.graphql.context import build_context, extract_bearer_token
+from src.application.ports import TokenPayload, TokenService
 from src.domain.exceptions import InvalidCredentialsError
+from src.domain.user import User
 
 
-class StubTokenService:
-    def __init__(self, payload=None, error: Exception | None = None):
-        self._payload = payload or {}
+class StubTokenService(TokenService):
+    def __init__(self, payload: TokenPayload | None = None, error: Exception | None = None):
+        self._payload: TokenPayload = payload or {}
         self._error = error
 
-    def decode_token(self, token: str) -> dict:
+    def generate_token(self, user: User) -> str:
+        raise NotImplementedError
+
+    def decode_token(self, token: str) -> TokenPayload:
         if self._error:
             raise self._error
         return self._payload
+
+    def generate_reset_token(self) -> str:
+        raise NotImplementedError
 
 
 def make_request(headers: dict[str, str] | None = None) -> Request:
@@ -19,7 +29,7 @@ def make_request(headers: dict[str, str] | None = None) -> Request:
         (key.lower().encode("utf-8"), value.encode("utf-8"))
         for key, value in (headers or {}).items()
     ]
-    scope = {
+    scope: Scope = {
         "type": "http",
         "method": "POST",
         "path": "/graphql",
@@ -33,22 +43,22 @@ def make_request(headers: dict[str, str] | None = None) -> Request:
 def test_extract_bearer_token_returns_none_for_non_bearer_header():
     request = make_request({"Authorization": "Basic abc"})
 
-    assert _extract_bearer_token(request) is None
+    assert extract_bearer_token(request) is None
 
 
-async def test_build_context_reads_user_id_from_valid_token():
+def test_build_context_reads_user_id_from_valid_token() -> None:
     request = make_request({"Authorization": "Bearer valid-token"})
     token_service = StubTokenService(payload={"sub": "user-123"})
 
-    context = await build_context(request, token_service)
+    context = asyncio.run(build_context(request, token_service))
 
-    assert context.current_user_id == "user-123"
+    assert context["current_user_id"] == "user-123"
 
 
-async def test_build_context_ignores_invalid_token():
+def test_build_context_ignores_invalid_token() -> None:
     request = make_request({"Authorization": "Bearer invalid-token"})
     token_service = StubTokenService(error=InvalidCredentialsError("Invalid access token"))
 
-    context = await build_context(request, token_service)
+    context = asyncio.run(build_context(request, token_service))
 
-    assert context.current_user_id is None
+    assert context["current_user_id"] is None
