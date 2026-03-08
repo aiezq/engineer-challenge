@@ -29,13 +29,33 @@ services:
       timeout: 5s
       retries: 5
 
-  # Backend and Frontend services will be added here later once their Dockerfiles are ready
-  # backend:
-  #   build:
-  #     context: ./backend
-  # frontend:
-  #   build:
-  #     context: ./frontend
+  backend:
+    build:
+      context: ./backend
+    container_name: orbitto-backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://orbitto_user:orbitto_password@database:5432/orbitto_db
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET_KEY: local-dev-secret-key
+      CORS_ORIGINS: http://localhost:3000
+    ports:
+      - "8000:8000"
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: orbitto-frontend
+    environment:
+      GRAPHQL_URL: http://backend:8000/graphql
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
 
 volumes:
   db_data:
