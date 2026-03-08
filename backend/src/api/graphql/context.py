@@ -1,12 +1,10 @@
-from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, TypedDict
 from fastapi import Request
 from src.domain.exceptions import InvalidCredentialsError
 from src.infrastructure.auth.token_service import JwtTokenService
 
 
-@dataclass
-class GraphQLContext:
+class GraphQLContext(TypedDict):
     request: Request
     current_user_id: Optional[str]
 
@@ -30,4 +28,7 @@ async def build_context(request: Request, token_service: JwtTokenService) -> Gra
 
         current_user_id = payload.get("sub")
 
-    return GraphQLContext(request=request, current_user_id=current_user_id)
+    return {
+        "request": request,
+        "current_user_id": current_user_id,
+    }

@@ -41,7 +41,7 @@ token_service = JwtTokenService(
 
 
 def _require_current_user_id(info: Info[GraphQLContext, None]) -> str:
-    current_user_id = info.context.current_user_id
+    current_user_id = info.context.get("current_user_id")
     if not current_user_id:
         raise InvalidCredentialsError("Authentication required")
     return current_user_id
@@ -81,7 +81,7 @@ class Query:
 class Mutation:
     @strawberry.mutation
     async def register(self, info: Info[GraphQLContext, None], input: RegisterUserInput) -> UserType:
-        await rate_limit(info.context.request, limit=5, window=60, key_suffix="register")
+        await rate_limit(info.context["request"], limit=5, window=60, key_suffix="register")
         async with AsyncSessionLocal() as session:
             repo = get_user_repo(session)
             handler = RegisterUserHandler(repo, hasher)
@@ -94,7 +94,7 @@ class Mutation:
 
     @strawberry.mutation
     async def authenticate(self, info: Info[GraphQLContext, None], input: AuthenticateInput) -> AuthResultType:
-        await rate_limit(info.context.request, limit=5, window=60, key_suffix="authenticate")
+        await rate_limit(info.context["request"], limit=5, window=60, key_suffix="authenticate")
         async with AsyncSessionLocal() as session:
             repo = get_user_repo(session)
             handler = AuthenticateHandler(repo, hasher, token_service)
@@ -103,7 +103,7 @@ class Mutation:
 
     @strawberry.mutation
     async def request_password_reset(self, info: Info[GraphQLContext, None], input: RequestResetInput) -> bool:
-        await rate_limit(info.context.request, limit=5, window=60, key_suffix="request_password_reset")
+        await rate_limit(info.context["request"], limit=5, window=60, key_suffix="request_password_reset")
         async with AsyncSessionLocal() as session:
             repo = get_user_repo(session)
             handler = RequestPasswordResetHandler(repo, token_service)
@@ -113,7 +113,7 @@ class Mutation:
 
     @strawberry.mutation
     async def reset_password(self, info: Info[GraphQLContext, None], input: ResetPasswordInput) -> bool:
-        await rate_limit(info.context.request, limit=5, window=60, key_suffix="reset_password")
+        await rate_limit(info.context["request"], limit=5, window=60, key_suffix="reset_password")
         async with AsyncSessionLocal() as session:
             repo = get_user_repo(session)
             handler = ResetPasswordHandler(repo, hasher)
