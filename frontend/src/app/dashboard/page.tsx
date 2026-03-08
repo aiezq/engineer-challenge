@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
 
 // Mock data generator based on the screenshot
 const generateMockData = (bankName: string, bankColor: string) => {
@@ -22,6 +23,13 @@ const mockGroups = [
 ];
 
 export default function DashboardPage() {
+    const router = useRouter();
+
+    const handleLogout = () => {
+        localStorage.removeItem("token");
+        router.push("/login");
+    };
+
     return (
         <div className="flex-1 overflow-y-auto bg-[#f8f9fc]">
 
@@ -39,11 +47,26 @@ export default function DashboardPage() {
                     <button className="bg-[#eef4ff] text-[#3b82f6] font-medium text-sm px-4 py-2 rounded-full">
                         Pro-версия
                     </button>
-                    <div className="flex items-center gap-2 cursor-pointer">
-                        <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-500">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                    <div className="relative group">
+                        <div className="flex items-center gap-2 cursor-pointer pb-2 -mb-2">
+                            <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-500">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                            </div>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400 group-hover:rotate-180 transition-transform duration-200"><path d="m6 9 6 6 6-6" /></svg>
                         </div>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><path d="m6 9 6 6 6-6" /></svg>
+
+                        {/* Dropdown Menu */}
+                        <div className="absolute right-0 top-full pt-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                            <div className="w-48 bg-white border border-gray-100 rounded-lg shadow-lg py-1 overflow-hidden">
+                                <button
+                                    onClick={handleLogout}
+                                    className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                                >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" x2="9" y1="12" y2="12" /></svg>
+                                    Выйти из аккаунта
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </header>
