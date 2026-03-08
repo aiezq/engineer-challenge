@@ -6,6 +6,12 @@ from pathlib import Path
 
 import alembic.command as command
 from alembic.config import Config
+from src.infrastructure.db.migrations import (
+    INITIAL_REVISION,
+    LATEST_REVISION,
+    DatabaseSchemaState,
+    _decide_bootstrap_strategy,
+)
 
 
 def make_alembic_config(database_url: str) -> Config:
@@ -17,6 +23,41 @@ def make_alembic_config(database_url: str) -> Config:
 
 
 class MigrationTests(unittest.TestCase):
+    def test_legacy_schema_uses_stamp_then_upgrade_strategy(self) -> None:
+        strategy = _decide_bootstrap_strategy(
+            DatabaseSchemaState(
+                has_alembic_version=False,
+                has_users_table=True,
+                has_reset_token_hash=False,
+                has_outbox_messages=False,
+            )
+        )
+
+        self.assertEqual(strategy, ("stamp_then_upgrade", INITIAL_REVISION))
+
+    def test_fully_migrated_schema_without_version_table_is_stamped_to_head(self) -> None:
+        strategy = _decide_bootstrap_strategy(
+            DatabaseSchemaState(
+                has_alembic_version=False,
+                has_users_table=True,
+                has_reset_token_hash=True,
+                has_outbox_messages=True,
+            )
+        )
+
+        self.assertEqual(strategy, ("stamp", LATEST_REVISION))
+
+    def test_partial_schema_raises_explicit_error(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "partially migrated state"):
+            _decide_bootstrap_strategy(
+                DatabaseSchemaState(
+                    has_alembic_version=False,
+                    has_users_table=True,
+                    has_reset_token_hash=True,
+                    has_outbox_messages=False,
+                )
+            )
+
     def test_upgrade_head_succeeds_on_empty_db(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             db_path = Path(tmp_dir) / "empty.sqlite"

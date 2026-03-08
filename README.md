@@ -159,7 +159,7 @@ graph TD
 
 ### 3. Infrastructure as Code (IaC)
 - Инфраструктура полностью описана в `docker-compose.yml`, который поднимает PostgreSQL с healthcheck-ами и Redis для rate-limiting.
-- Docker image backend при старте выполняет `alembic upgrade head`, поэтому schema evolution не зависит от `metadata.create_all()`.
+- Docker image backend при старте выполняет migration bootstrap через Alembic: на пустой БД применяется `upgrade head`, на legacy volume без `alembic_version` выполняется совместимое `stamp + upgrade`, поэтому schema evolution не зависит от `metadata.create_all()`.
 
 ### Ключевые инварианты и бизнес-правила
 - Email нормализуется и валидируется в Domain Layer.

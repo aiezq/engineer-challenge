@@ -12,4 +12,4 @@ COPY alembic.ini .
 COPY alembic ./alembic
 COPY src ./src
 
-CMD ["sh", "-c", "alembic upgrade head && uvicorn src.main:app --host 0.0.0.0 --port 8000"]
+CMD ["sh", "-c", "python -m src.infrastructure.db.migrations && uvicorn src.main:app --host 0.0.0.0 --port 8000"]
