@@ -5,9 +5,9 @@
 В проекте сформирована прозрачная история коммитов, демонстрирующая последовательный подход к разработке от инициализации инфраструктуры до финальной интеграции UI.
 
 ## Особенности реализации
-- **Backend (FastAPI, Python 3.13 Ready):** Использован нативный модуль `bcrypt` для хэширования без устаревших зависимостей. Настроена строгая типизация доменных сущностей (Value Objects), валидирующих пароли и email прямиком в Domain Layer (DDD). GraphQL API построено на базе Strawberry.
-- **Frontend (Next.js, Apollo):** Реализован стильный **pixel-perfect светлый дизайн** (Tailwind CSS) по макетам (сплит-скрин с 3D сферами). GraphQL-клиентом выступает `@apollo/client` (используется стабильная ветка 3.x для бесшовной работы импортов React в Next.js 15).
-- **Инфраструктура:** Полная IaC через Docker Compose для PostgreSQL 15 и Redis 7 (с Rate Limiting на авторизацию).
+- **Backend (FastAPI, Python 3.13 Ready):** Использован нативный модуль `bcrypt` для хэширования без устаревших зависимостей. Настроена строгая типизация доменных сущностей (Value Objects), валидирующих пароли и email прямиком в Domain Layer (DDD). GraphQL API построено на базе Strawberry, а секреты/URL-ы инфраструктуры вынесены в переменные окружения.
+- **Frontend (Next.js, Apollo):** Реализован светлый UI на App Router. GraphQL-клиент ходит не напрямую в FastAPI, а через Next.js BFF-прокси `/api/graphql`, что позволяет хранить access token в `httpOnly` cookie вместо `localStorage`.
+- **Инфраструктура:** Docker Compose поднимает PostgreSQL 15, Redis 7, backend и frontend. На backend включен rate limiting для auth/reset сценариев.
 
 ## Запуск проекта
 
@@ -15,25 +15,35 @@
 
 ### Быстрый запуск с Docker Compose
 ```bash
-# 1. Запустить инфраструктуру (PostgreSQL, Redis)
-docker-compose up -d
-
-# 2. Локальный запуск Backend
-cd backend
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn src.main:app --reload --port 8000
-
-# 3. Локальный запуск Frontend
-cd frontend
-npm install
-npm run dev
+# Поднять весь стек
+docker-compose up --build
 ```
 
 После запуска:
 - Frontend будет доступен по адресу: `http://localhost:3000`
 - Встроенный интерфейс GraphQL (Strawberry): `http://localhost:8000/graphql`
+
+### Локальный запуск без Docker
+```bash
+# Backend
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn src.main:app --reload --port 8000
+
+# Frontend
+cd frontend
+npm install
+npm run dev
+```
+
+### Тесты backend
+```bash
+cd backend
+pip install -r requirements-dev.txt
+python3 -m pytest
+```
 
 ---
 
@@ -44,8 +54,8 @@ graph TD
     %% Frontend
     subgraph Frontend [Next.js App Router]
         UI[UI Components]
-        Apollo[Apollo GraphQL Client]
-        UI --> Apollo
+        BFF[Next.js BFF /api/graphql]
+        UI --> BFF
     end
 
     %% Backend API
@@ -91,7 +101,7 @@ graph TD
         RD[(Redis 7)]
     end
 
-    Apollo -- "GraphQL (HTTP)" --> GQL
+    BFF -- "GraphQL (HTTP)" --> GQL
     Repo --> PG
     Rate --> RD
 ```
@@ -108,7 +118,7 @@ graph TD
 
 ### 2. Command Query Responsibility Segregation (CQRS)
 - **Read/Write разделение:** Логика разделена на команды (изменение состояния: регистрация, выдача токенов) и запросы (получение данных).
-- **GraphQL:** Идеально ложится на эту парадигму (Mutations = Commands, Queries = Queries). 
+- **GraphQL:** Идеально ложится на эту парадигму (Mutations = Commands, Queries = Queries).
 - **ReadModels:** Запросы возвращают специально подготовленные `UserReadModel`, минуя загрузку тяжелой бизнес-сущности `User`. В реальном проекте Read репозитории могут обращаться напрямую к реплике БД или кэшу.
 
 ### 3. Infrastructure as Code (IaC)
@@ -119,16 +129,16 @@ graph TD
 ## Ключевые компромиссы (Trade-offs / ADRs)
 
 1. **GraphQL вместо gRPC:** gRPC крут для микросервисов, но GraphQL предоставляет лучшую эргономику для Next.js (через Apollo) при публичном API для браузера. CQRS-команды очень легко проецировать на GraphQL Mutations.
-2. **Один Read/Write репозиторий в SQLAlchemy:** Вместо создания двух независимых подключений и репозиториев для Commands и Queries (что является строгим CQRS), была применена упрощенная модель: `SqlAlchemyUserRepository` реализует оба интерфейса (`UserRepository` и `UserReadRepository`), чтобы сэкономить время в рамках челленджа.
+2. **Общий session factory для Command/Query путей:** Для упрощения проект использует общий `AsyncSessionLocal`, но read и write репозитории уже разведены по разным классам, чтобы не смешивать доменные и read-модели в одном контракте.
 3. **Отсутствие асинхронной шины (Event Bus):** В "чистом" DDD после `user.request_password_reset()` публикуется доменное событие (Domain Event), а хендлер отправляет письмо через RabbitMQ/Kafka. Для простоты здесь это опущено, но заложен в архитектуру.
-4. **Хранение токенов Next.js:** Выбрано сохранение в `localStorage` (через Apollo middleware) для симуляции реального приложения. На проде лучше использовать `httpOnly Cookies`, чтобы избежать XSS-рисков.
+4. **BFF вместо прямого хранения токена в браузере:** Access token сохраняется в `httpOnly` cookie через Next.js route handler и проксируется в backend через `/api/graphql`. Это безопаснее `localStorage`, но делает frontend частью auth-контура.
 
 ---
 
 ## Следующие шаги для Production-версии
 
 - [ ] **IaC Evolution:** Переписать развёртывание на Terraform + Helm Charts для Kubernetes (ingress, cert-manager).
-- [ ] **Безопасность UI:** Перевести аутентификацию на HttpOnly Secure Cookies через Backend-For-Frontend (BFF) или Next.js Route Handlers.
+- [ ] **Refresh Tokens:** Добавить refresh-token flow и ротацию сессий вместо одного short-lived access token.
 - [ ] **Event-Driven Broker:** Внедрить RabbitMQ / Kafka или хотя бы Celery/Redis Queue для обработки Domain Events (рассылка писем, аналитика регистраций).
 - [ ] **Миграции БД:** Добавить Alembic для контроля версионирования схемы БД.
 - [ ] **Outbox Pattern:** Добавить паттерн Transactional Outbox для синхронизации транзакций БД с публикацией событий.
