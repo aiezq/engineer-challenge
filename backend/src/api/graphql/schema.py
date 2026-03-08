@@ -12,13 +12,17 @@ from src.application.commands.password_reset import (
     ResetPasswordCommand, ResetPasswordHandler
 )
 from src.infrastructure.db.database import AsyncSessionLocal
-from src.infrastructure.db.repository import SqlAlchemyUserRepository
+from src.infrastructure.db.repository import SqlAlchemyUserReadRepository, SqlAlchemyUserRepository
 from src.infrastructure.auth.password_hasher import BcryptPasswordHasher
 from src.infrastructure.auth.token_service import JwtTokenService
 
 # Quick dependency injection helpers for simplicity
 def get_user_repo(session):
     return SqlAlchemyUserRepository(session)
+
+
+def get_user_read_repo(session):
+    return SqlAlchemyUserReadRepository(session)
 
 hasher = BcryptPasswordHasher()
 token_service = JwtTokenService(secret_key="SECRET_DONT_USE_IN_PROD")
@@ -28,7 +32,7 @@ class Query:
     @strawberry.field
     async def get_user(self, user_id: str) -> Optional[UserType]:
         async with AsyncSessionLocal() as session:
-            repo = get_user_repo(session)
+            repo = get_user_read_repo(session)
             handler = GetUserByIdHandler(repo)
             result = await handler.handle(GetUserByIdQuery(user_id=user_id))
             if result:
