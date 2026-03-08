@@ -1,11 +1,14 @@
 import unittest
 from fastapi.testclient import TestClient
+from httpx import Response
 from src.main import app
 
 
 class AuthApiIntegrationTests(unittest.TestCase):
     def test_health_check_endpoint(self) -> None:
-        with TestClient(app) as client:
+        client: TestClient = TestClient(app)
+        response: Response
+        with client:
             response = client.get("/health")
 
         self.assertEqual(response.status_code, 200)
@@ -20,7 +23,9 @@ class AuthApiIntegrationTests(unittest.TestCase):
         }
         """
 
-        with TestClient(app) as client:
+        client: TestClient = TestClient(app)
+        response: Response
+        with client:
             response = client.post("/graphql", json={"query": query})
 
         self.assertEqual(response.status_code, 200)
