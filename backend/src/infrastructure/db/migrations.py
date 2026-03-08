@@ -78,10 +78,10 @@ async def detect_database_schema_state(database_url: str) -> DatabaseSchemaState
         await engine.dispose()
 
 
-async def run_migrations() -> None:
+def run_migrations() -> None:
     settings = get_settings()
     config = _make_alembic_config(settings.database_url)
-    state = await detect_database_schema_state(settings.database_url)
+    state = asyncio.run(detect_database_schema_state(settings.database_url))
     action, revision = _decide_bootstrap_strategy(state)
 
     log.info(
@@ -108,7 +108,7 @@ async def run_migrations() -> None:
 
 def main() -> None:
     setup_logging()
-    asyncio.run(run_migrations())
+    run_migrations()
 
 
 if __name__ == "__main__":
