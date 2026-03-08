@@ -1,6 +1,7 @@
 import strawberry
 from typing import Optional
 from fastapi import Request
+from sqlalchemy.ext.asyncio import AsyncSession
 from strawberry.types import Info
 from .types import (
     UserType, AuthResultType, RegisterUserInput, 
@@ -24,11 +25,11 @@ from src.infrastructure.auth.rate_limiter import rate_limit
 from src.infrastructure.auth.token_service import JwtTokenService
 
 # Quick dependency injection helpers for simplicity
-def get_user_repo(session):
+def get_user_repo(session: AsyncSession) -> SqlAlchemyUserRepository:
     return SqlAlchemyUserRepository(session)
 
 
-def get_user_read_repo(session):
+def get_user_read_repo(session: AsyncSession) -> SqlAlchemyUserReadRepository:
     return SqlAlchemyUserReadRepository(session)
 
 settings = get_settings()

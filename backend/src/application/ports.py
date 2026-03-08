@@ -1,7 +1,13 @@
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, TypedDict
 from src.domain.user import User
 from src.domain.value_objects import Email
+
+
+class TokenPayload(TypedDict, total=False):
+    sub: str
+    email: str
+    exp: object
 
 class UserRepository(ABC):
     @abstractmethod
@@ -37,7 +43,7 @@ class TokenService(ABC):
         pass
 
     @abstractmethod
-    def decode_token(self, token: str) -> dict:
+    def decode_token(self, token: str) -> TokenPayload:
         pass
 
     @abstractmethod

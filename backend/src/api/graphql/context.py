@@ -1,7 +1,7 @@
 from typing import Optional, TypedDict
 from fastapi import Request
+from src.application.ports import TokenPayload, TokenService
 from src.domain.exceptions import InvalidCredentialsError
-from src.infrastructure.auth.token_service import JwtTokenService
 
 
 class GraphQLContext(TypedDict):
@@ -17,12 +17,12 @@ def _extract_bearer_token(request: Request) -> Optional[str]:
     return token
 
 
-async def build_context(request: Request, token_service: JwtTokenService) -> GraphQLContext:
+async def build_context(request: Request, token_service: TokenService) -> GraphQLContext:
     token = _extract_bearer_token(request)
     current_user_id = None
     if token:
         try:
-            payload = token_service.decode_token(token)
+            payload: TokenPayload = token_service.decode_token(token)
         except InvalidCredentialsError:
             payload = {}
 
