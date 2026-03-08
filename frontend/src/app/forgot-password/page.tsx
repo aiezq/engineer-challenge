@@ -51,16 +51,16 @@ export default function ForgotPasswordPage() {
         <CenteredAuthLayout>
             <div className="w-full max-w-md mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
 
-                <div className="flex items-center gap-4 mb-6">
+                <div className="flex items-center gap-4 mb-2">
                     <Link href="/login" className="text-gray-900 hover:text-gray-600 transition-colors">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="m15 18-6-6 6-6" />
                         </svg>
                     </Link>
-                    <h1 className="text-3xl font-medium text-gray-900">Восстановление пароля</h1>
+                    <h1 className="text-[28px] font-medium text-[#111827]">Восстановление пароля</h1>
                 </div>
 
-                <p className="text-gray-400 text-sm mb-10">
+                <p className="text-[#9ca3af] text-sm mb-10 pl-10">
                     Укажите адрес почты на который был зарегистрирован аккаунт
                 </p>
 
