@@ -1,114 +1,129 @@
-# Advanced Engineer Challenge
+# Orbitto Auth - Advanced Engineer Challenge
 
-Не забудьте сперва поставить Star. Спасибо!
+Репозиторий содержит решение челленджа на позицию backend/fullstack инженера, реализованное по принципам **DDD, CQRS и IaC**. В качестве стека были выбраны **FastAPI (Python)** и **Next.js (React)**, взаимодействие между которыми построено на **GraphQL**. 
 
-UPD: Вакансия немного переехала. Смотрите ссылку.
+В проекте сформирована прозрачная история коммитов (12 штук), демонстрирующая последовательный подход к разработке от инициализации инфраструктуры до интеграции UI.
 
-Этот репозиторий — инженерный челлендж для кандидатов на backend/fullstack позиции.
+## Запуск проекта
 
-Задача специально узкая по продукту, но широкая по архитектуре: мы оцениваем не «как быстро собрать формы логина», а то, как вы проектируете систему.
+**Требования:** Docker и Docker Compose (для БД и Redis), Node.js (для фронтенда), Python 3.10+ (для локального бэкенда при желании).
 
-## Контекст
+### Быстрый запуск с Docker Compose
+```bash
+# 1. Запустить инфраструктуру (PostgreSQL, Redis)
+docker-compose up -d
 
-Вам нужно реализовать модуль аутентификации для 3 пользовательских сценариев:
-1. Регистрация
-2. Авторизация
-3. Восстановление пароля
+# 2. Локальный запуск Backend
+cd backend
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn src.main:app --reload --port 8000
 
-UI-дизайн (https://www.figma.com/design/31KetUbya482vMSGgyiNIf/Orbitto-%7C-Service--Copy-?node-id=102-12806&t=TMlkJ3c3j3vJF5fb-4) уже подготовлен и будет отправной точкой для клиентской части.
+# 3. Локальный запуск Frontend
+cd ../frontend
+npm install
+npm run dev
+```
 
-## Что важно
+После запуска:
+- Frontend будет доступен по адресу: `http://localhost:3000`
+- Встроенный интерфейс GraphQL (Strawberry): `http://localhost:8000/graphql`
 
-Решение должно демонстрировать инженерную зрелость:
-- DDD (явные bounded context, модель домена, язык предметной области)
-- CQRS (разделение команд и запросов)
-- IaC (воспроизводимое окружение инфраструктуры)
-- Осознанный выбор языка и стека (язык выбираете на своё усмотрение, но выбор нужно аргументировать)
+---
 
-`CRUD + controller + stock REST auth по документации` не считается целевым уровнем решения для этого челленджа.
+## Архитектурная схема (Mermaid)
 
-## Обязательные требования
+```mermaid
+graph TD
+    %% Frontend
+    subgraph Frontend [Next.js App Router]
+        UI[UI Components]
+        Apollo[Apollo GraphQL Client]
+        UI --> Apollo
+    end
 
-1. Архитектура
-- Покажите доменную модель и границы контекстов.
-- Выделите command side и query side (даже если в упрощенном виде).
-- Опишите ключевые инварианты и бизнес-правила (например, правила reset-token, валидация пароля, ограничения на повторную отправку).
+    %% Backend API
+    subgraph Backend [FastAPI Application]
+        GQL[GraphQL Strawberry Endpoint]
+        
+        %% CQRS
+        subgraph AppLayer [Application Layer / CQRS]
+            CMD[Command Handlers\nRegister, Login, Reset]
+            QRY[Query Handlers\nGetUser, ValidateToken]
+        end
+        
+        %% DDD
+        subgraph DomainLayer [Domain Layer]
+            User[User Entity]
+            VO[Value Objects: Email, Password]
+            Prt[Ports/Interfaces]
+        end
+        
+        %% Infrastructure
+        subgraph InfraLayer [Infrastructure Layer]
+            Repo[SQLAlchemy Repository]
+            Token[JWT Token Service]
+            Hash[Bcrypt Hasher]
+            Log[Structlog]
+            Rate[Redis Rate Limiter]
+            
+            Repo -.-> Prt
+            Token -.-> Prt
+            Hash -.-> Prt
+        end
+        
+        GQL --> CMD
+        GQL --> QRY
+        CMD --> DomainLayer
+        CMD --> Prt
+        QRY --> Prt
+    end
 
-2. API/протокол взаимодействия
-- Предпочтительный уровень: `gRPC` и/или `GraphQL`.
-- `Только REST` допустим исключительно при сильной архитектурной аргументации, иначе это будет существенным минусом.
+    %% Storage
+    subgraph Storage [Docker Compose IaC]
+        PG[(PostgreSQL 15)]
+        RD[(Redis 7)]
+    end
 
-3. Infrastructure as Code
-- Запуск окружения должен быть описан кодом.
-- Минимум: локально воспроизводимый стенд (например, Docker Compose).
-- Плюс в оценке: Terraform/Kubernetes manifests/Helm.
+    Apollo -- "GraphQL (HTTP)" --> GQL
+    Repo --> PG
+    Rate --> RD
+```
 
-4. Безопасность
-- Без хранения паролей в открытом виде.
-- Корректная работа с токенами/сессиями.
-- Защита базовых auth-флоу (rate limiting, expiration, replay/abuse considerations).
+---
 
-5. Наблюдаемость и качество
-- Логи, метрики или трейсинг (минимум один из блоков).
-- Тесты критичных участков (доменные правила, auth-флоу, интеграционные точки).
+## Как были реализованы принципы
 
-6. Технологические решения
-- Язык программирования и фреймворки выбираете самостоятельно.
-- В `README` обязательно зафиксируйте, почему выбрали именно этот стек и какие альтернативы рассматривали.
+### 1. Domain-driven Design (DDD)
+- **Изоляция:** Слой `src/domain` не имеет зависимостей от фреймворков и БД.
+- **Value Objects:** Введено строгую типизацию для `Email`, `RawPassword` и `HashedPassword` с проверками инвариантов на момент создания.
+- **Rich User Entity:** Модель `User` инкапсулирует бизнес-правила генерации и валидации `reset_token`, запрещая внешним сервисам менять состояние напрямую: `user.request_password_reset()` и `user.reset_password()`.
+- **Ports & Adapters:** Слой инфраструктуры имплементирует абстракции (порты), определенные в Application layer (`UserRepository`, `PasswordHasher`).
 
-## Ограничения и анти-паттерны
+### 2. Command Query Responsibility Segregation (CQRS)
+- **Read/Write разделение:** Логика разделена на команды (изменение состояния: регистрация, выдача токенов) и запросы (получение данных).
+- **GraphQL:** Идеально ложится на эту парадигму (Mutations = Commands, Queries = Queries). 
+- **ReadModels:** Запросы возвращают специально подготовленные `UserReadModel`, минуя загрузку тяжелой бизнес-сущности `User`. В реальном проекте Read репозитории могут обращаться напрямую к реплике БД или кэшу.
 
-Следующие подходы считаются слабым решением:
-- Полностью «коробочный» auth-провайдер без вашей архитектурной проработки домена.
-- Копирование шаблонного туториала без обоснования trade-offs.
-- Монолитный слой handlers/controllers без разделения доменной и инфраструктурной логики.
+### 3. Infrastructure as Code (IaC)
+- Инфраструктура полностью описана в `docker-compose.yml`, который поднимает PostgreSQL с healthcheck-ами и Redis для rate-limiting.
 
-Можно использовать библиотеки для криптографии, JWT, транспорта и т.д., но архитектурные решения должны быть вашими.
+---
 
-## Что нужно сдать
+## Ключевые компромиссы (Trade-offs / ADRs)
 
-1. Исходный код в вашем fork.
-2. Обновленный `README` в вашем fork с:
-- как запустить проект;
-- архитектурная схема (можно Mermaid/PlantUML);
-- объяснение, где в решении DDD, CQRS и IaC;
-- ключевые компромиссы (trade-offs);
-- что сделали бы следующим шагом в production-версии.
-3. Минимальный набор тестов и инструкции по их запуску.
+1. **GraphQL вместо gRPC:** gRPC крут для микросервисов, но GraphQL предоставляет лучшую эргономику для Next.js (через Apollo) при публичном API для браузера. CQRS-команды очень легко проецировать на GraphQL Mutations.
+2. **Один Read/Write репозиторий в SQLAlchemy:** Вместо создания двух независимых подключений и репозиториев для Commands и Queries (что является строгим CQRS), была применена упрощенная модель: `SqlAlchemyUserRepository` реализует оба интерфейса (`UserRepository` и `UserReadRepository`), чтобы сэкономить время в рамках челленджа.
+3. **Отсутствие асинхронной шины (Event Bus):** В "чистом" DDD после `user.request_password_reset()` публикуется доменное событие (Domain Event), а хендлер отправляет письмо через RabbitMQ/Kafka. Для простоты здесь это опущено, но заложен в архитектуру.
+4. **Хранение токенов Next.js:** Выбрано сохранение в `localStorage` (через Apollo middleware) для симуляции реального приложения. На проде лучше использовать `httpOnly Cookies`, чтобы избежать XSS-рисков.
 
-## Формат выполнения
+---
 
-1. Сделайте fork этого репозитория.
-2. Пройдите Pinterest-челлендж:
-- соберите `moodboard`;
-- соберите `anti-moodboard`.
-3. Реализуйте решение в своем fork.
-4. Оформите результат в `README`.
-5. Отправьте 3 ссылки в отклике:
-- ссылка на `moodboard`;
-- ссылка на `anti-moodboard`;
-- ссылка на ваш fork.
+## Следующие шаги для Production-версии
 
-## Использование ИИ
-
-- Использование ИИ-инструментов в рамках челленджа разрешено.
-- Если используете ИИ, добавьте в ваш fork папку `.agents`, чтобы было видно, каким образом вы строили процесс решения.
-
-## Критерии оценки
-
-1. Архитектурное мышление (DDD/CQRS/IaC).
-2. Качество инженерных решений и аргументация trade-offs.
-3. Надежность и безопасность auth-флоу.
-4. Чистота кода и тестовое покрытие критичных сценариев.
-5. Операбельность: насколько легко поднять и проверить решение.
-
-## Бонусные сигналы
-
-- Event-driven взаимодействие между компонентами.
-- Service mesh / policy-driven networking (если уместно и обосновано).
-- Продуманная стратегия эволюции схемы данных и backward compatibility.
-- ADR (Architecture Decision Records) для ключевых решений.
-
-## Важно
-
-Нас интересует не «идеальный продакшен за вечер», а качество инженерного мышления и способность строить систему осознанно.
+- [ ] **IaC Evolution:** Переписать развёртывание на Terraform + Helm Charts для Kubernetes (ingress, cert-manager).
+- [ ] **Безопасность UI:** Перевести аутентификацию на HttpOnly Secure Cookies через Backend-For-Frontend (BFF) или Next.js Route Handlers.
+- [ ] **Event-Driven Broker:** Внедрить RabbitMQ / Kafka или хотя бы Celery/Redis Queue для обработки Domain Events (рассылка писем, аналитика регистраций).
+- [ ] **Миграции БД:** Добавить Alembic для контроля версионирования схемы БД.
+- [ ] **Outbox Pattern:** Добавить паттерн Transactional Outbox для синхронизации транзакций БД с публикацией событий.
