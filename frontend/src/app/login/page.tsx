@@ -1,10 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { useMutation } from "@apollo/client";
 import { LOGIN_MUTATION } from "@/lib/graphql";
 import { useRouter } from "next/navigation";
+import AuthLayout from "@/components/AuthLayout";
+import Link from "next/link";
 
 export default function LoginPage() {
     const [email, setEmail] = useState("");
@@ -24,67 +25,81 @@ export default function LoginPage() {
     }
 
     return (
-        <main className="flex min-h-screen flex-col items-center justify-center p-6 relative overflow-hidden">
-            <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-orbitto-primary/20 blur-[120px]" />
+        <AuthLayout
+            footerText="Еще не зарегистрированы?"
+            footerLinkText="Регистрация"
+            footerLinkHref="/register"
+        >
+            <div className="w-full max-w-sm mx-auto">
+                <h1 className="text-3xl font-semibold text-gray-900 mb-8">Войти в систему</h1>
 
-            <div className="z-10 w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-700">
-                <div className="glass-panel p-8 sm:p-10 w-full space-y-8 relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-orbitto-primary to-transparent opacity-50"></div>
+                <form onSubmit={onSubmit} className="space-y-6">
 
-                    <div className="text-center space-y-2">
-                        <h1 className="text-3xl font-bold tracking-tight text-white">Welcome back</h1>
-                        <p className="text-sm text-slate-400">Enter your credentials to access your account</p>
-                    </div>
+                    <div className="space-y-4">
+                        {/* Email Field */}
+                        <div className="input-group">
+                            <label
+                                className={`input-label ${email ? '-translate-y-4 scale-75' : 'translate-y-2 translate-x-1 scale-100'} origin-top-left`}
+                                htmlFor="email"
+                            >
+                                E-mail
+                            </label>
+                            <input
+                                id="email"
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder={email ? "" : "Введите e-mail"}
+                                className={`input-field ${error ? 'error' : ''}`}
+                                required
+                            />
+                        </div>
 
-                    <form className="space-y-6" onSubmit={onSubmit}>
-                        {error && <div className="text-red-400 text-sm bg-red-900/20 p-3 rounded">{error.message}</div>}
-
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-300" htmlFor="email">Email</label>
-                                <input
-                                    id="email"
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    placeholder="name@example.com"
-                                    className="input-field"
-                                    required
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <label className="text-sm font-medium text-slate-300" htmlFor="password">Password</label>
-                                    <Link href="/forgot-password" className="text-xs text-orbitto-primary hover:text-orbitto-primary-hover hover:underline transition-all">
-                                        Forgot password?
-                                    </Link>
-                                </div>
+                        {/* Password Field */}
+                        <div className="input-group">
+                            <label
+                                className={`input-label ${password ? '-translate-y-4 scale-75' : 'translate-y-2 translate-x-1 scale-100'} origin-top-left`}
+                                htmlFor="password"
+                            >
+                                Пароль
+                            </label>
+                            <div className="relative">
                                 <input
                                     id="password"
                                     type="password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="••••••••"
-                                    className="input-field"
+                                    placeholder={password ? "" : "Введите пароль"}
+                                    className={`input-field pr-10 ${error ? 'error' : ''}`}
                                     required
                                 />
+                                {password && (
+                                    <button type="button" className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 5C5.63636 5 2 12 2 12C2 12 5.63636 19 12 19C18.3636 19 22 12 22 12C22 12 18.3636 5 12 5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                            <path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                    </button>
+                                )}
                             </div>
+                            {error && <p className="input-error-text">Введены неверные данные</p>}
                         </div>
+                    </div>
 
-                        <button type="submit" disabled={loading} className="btn-primary flex justify-center items-center">
-                            {loading ? "Signing in..." : "Sign In"}
+                    <div className="pt-2">
+                        <button type="submit" disabled={loading} className="btn-primary">
+                            {loading ? "Вход..." : "Войти"}
                         </button>
-                    </form>
+                    </div>
 
-                    <div className="text-center text-sm text-slate-400">
-                        Don't have an account?{" "}
-                        <Link href="/register" className="font-medium text-orbitto-primary hover:text-orbitto-primary-hover hover:underline transition-all">
-                            Sign up
+                    <div className="text-center mt-4">
+                        <Link href="/forgot-password" className="text-sm text-orbitto-primary hover:underline font-medium">
+                            Забыли пароль?
                         </Link>
                     </div>
-                </div>
+
+                </form>
             </div>
-        </main>
+        </AuthLayout>
     );
 }

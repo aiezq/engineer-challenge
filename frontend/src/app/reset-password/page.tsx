@@ -1,49 +1,98 @@
-import Link from "next/link";
+"use client";
+
+import { useState } from "react";
+import { useMutation } from "@apollo/client";
+import { RESET_PASSWORD_MUTATION } from "@/lib/graphql";
+import { useRouter } from "next/navigation";
+import AuthLayout from "@/components/AuthLayout";
 
 export default function ResetPasswordPage() {
+    const [password, setPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [token, setToken] = useState("test-token"); // Normally extract from URL search params
+    const router = useRouter();
+
+    const [resetPassword, { loading, error: gqlError }] = useMutation(RESET_PASSWORD_MUTATION, {
+        onCompleted: () => {
+            router.push("/login?reset=success");
+        }
+    });
+
+    const [validationError, setValidationError] = useState("");
+
+    const onSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        setValidationError("");
+        if (password !== confirmPassword) {
+            setValidationError("Пароли не совпадают");
+            return;
+        }
+        resetPassword({ variables: { token, newPassword: password } });
+    }
+
+    const errorMessage = validationError || (gqlError ? "Неверный или просроченный токен" : "");
+
     return (
-        <main className="flex min-h-screen flex-col items-center justify-center p-6 relative overflow-hidden">
-            <div className="absolute bottom-[20%] left-[10%] w-[40%] h-[40%] rounded-full bg-orbitto-primary/10 blur-[100px]" />
+        <AuthLayout
+            footerText="Вспомнили пароль?"
+            footerLinkText="Войти"
+            footerLinkHref="/login"
+        >
+            <div className="w-full max-w-sm mx-auto">
+                <h1 className="text-3xl font-semibold text-gray-900 mb-8">Новый пароль</h1>
 
-            <div className="z-10 w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-700">
-                <div className="glass-panel p-8 sm:p-10 w-full space-y-8">
+                <form onSubmit={onSubmit} className="space-y-6">
 
-                    <div className="text-center space-y-2">
-                        <h1 className="text-3xl font-bold tracking-tight text-white">Create New Password</h1>
-                        <p className="text-sm text-slate-400">Please enter your new password below</p>
-                    </div>
-
-                    <form className="space-y-6">
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-300" htmlFor="password">New Password</label>
+                    <div className="space-y-4">
+                        <div className="input-group">
+                            <label
+                                className={`input-label ${password ? '-translate-y-4 scale-75' : 'translate-y-2 translate-x-1 scale-100'} origin-top-left`}
+                                htmlFor="password"
+                            >
+                                Новый пароль
+                            </label>
+                            <div className="relative">
                                 <input
                                     id="password"
                                     type="password"
-                                    placeholder="Must be at least 8 characters"
-                                    className="input-field"
-                                    required
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-300" htmlFor="confirm_password">Confirm New Password</label>
-                                <input
-                                    id="confirm_password"
-                                    type="password"
-                                    placeholder="Confirm your new password"
-                                    className="input-field"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder={password ? "" : "Введите пароль"}
+                                    className={`input-field pr-10 ${errorMessage ? 'error' : ''}`}
                                     required
                                 />
                             </div>
                         </div>
 
-                        <button type="submit" className="btn-primary">
-                            Set New Password
-                        </button>
-                    </form>
+                        <div className="input-group">
+                            <label
+                                className={`input-label ${confirmPassword ? '-translate-y-4 scale-75' : 'translate-y-2 translate-x-1 scale-100'} origin-top-left`}
+                                htmlFor="confirm_password"
+                            >
+                                Повторите пароль
+                            </label>
+                            <div className="relative">
+                                <input
+                                    id="confirm_password"
+                                    type="password"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    placeholder={confirmPassword ? "" : "Повторите пароль"}
+                                    className={`input-field pr-10 ${errorMessage ? 'error' : ''}`}
+                                    required
+                                />
+                            </div>
+                            {errorMessage && <p className="input-error-text">{errorMessage}</p>}
+                        </div>
+                    </div>
 
-                </div>
+                    <div className="pt-2">
+                        <button type="submit" disabled={loading} className="btn-primary">
+                            {loading ? "Сохранение..." : "Сохранить и войти"}
+                        </button>
+                    </div>
+                </form>
             </div>
-        </main>
+        </AuthLayout>
     );
 }
