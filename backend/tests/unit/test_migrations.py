@@ -1,4 +1,5 @@
 import hashlib
+import importlib.util
 import sqlite3
 import tempfile
 import unittest
@@ -23,6 +24,24 @@ def make_alembic_config(database_url: str) -> Config:
 
 
 class MigrationTests(unittest.TestCase):
+    def test_revision_ids_fit_postgres_alembic_version_limit(self) -> None:
+        versions_dir = Path(__file__).resolve().parents[2] / "alembic" / "versions"
+        revision_ids: list[str] = []
+
+        for revision_file in versions_dir.glob("*.py"):
+            if revision_file.name == "__init__.py":
+                continue
+
+            spec = importlib.util.spec_from_file_location(revision_file.stem, revision_file)
+            self.assertIsNotNone(spec)
+            self.assertIsNotNone(spec.loader)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            revision_ids.append(module.revision)
+
+        for revision_id in revision_ids:
+            self.assertLessEqual(len(revision_id), 32)
+
     def test_legacy_schema_uses_stamp_then_upgrade_strategy(self) -> None:
         strategy = _decide_bootstrap_strategy(
             DatabaseSchemaState(

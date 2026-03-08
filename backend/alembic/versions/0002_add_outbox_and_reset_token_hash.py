@@ -1,6 +1,6 @@
 """add outbox and reset_token_hash
 
-Revision ID: 0002_add_outbox_and_reset_token_hash
+Revision ID: 0002_outbox_reset_hash
 Revises: 0001_initial_auth_schema
 Create Date: 2026-03-08 00:10:00
 """
@@ -11,7 +11,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = "0002_add_outbox_and_reset_token_hash"
+revision = "0002_outbox_reset_hash"
 down_revision = "0001_initial_auth_schema"
 branch_labels = None
 depends_on = None
