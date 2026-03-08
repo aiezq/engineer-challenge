@@ -27,3 +27,25 @@ class ConfigTests(unittest.TestCase):
         with patch.dict(os.environ, {"APP_ENV": APP_ENV_PRODUCTION}, clear=True):
             with self.assertRaisesRegex(ValueError, "JWT_SECRET_KEY is required"):
                 get_settings()
+
+    def test_production_uses_configured_smtp_settings(self) -> None:
+        get_settings.cache_clear()
+        with patch.dict(
+            os.environ,
+            {
+                "APP_ENV": APP_ENV_PRODUCTION,
+                "JWT_SECRET_KEY": "x" * 32,
+                "SMTP_HOST": "smtp.example.com",
+                "SMTP_PORT": "587",
+                "SMTP_USERNAME": "mailer",
+                "SMTP_PASSWORD": "secret",
+                "SMTP_FROM_EMAIL": "noreply@example.com",
+                "SMTP_USE_TLS": "true",
+            },
+            clear=True,
+        ):
+            settings = get_settings()
+
+        self.assertEqual(settings.smtp_host, "smtp.example.com")
+        self.assertEqual(settings.smtp_port, 587)
+        self.assertTrue(settings.smtp_use_tls)

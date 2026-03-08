@@ -66,8 +66,9 @@ class InMemoryUserRepo:
         return None
 
     async def get_by_reset_token(self, token: str) -> User | None:
+        hashed_token = graphql_schema.token_service.hash_reset_token(token)
         for user in self._users_by_id.values():
-            if user.reset_token_hash == token:
+            if user.reset_token_hash == hashed_token:
                 return user
         return None
 
@@ -82,6 +83,26 @@ class InMemoryUserRepo:
 
     def add_user(self, user: User) -> None:
         self._users_by_id[str(user.id)] = user
+
+
+class InMemoryOutboxRepo:
+    def __init__(self) -> None:
+        self.messages: list[dict[str, object]] = []
+
+    async def enqueue(
+        self,
+        *,
+        event_type: str,
+        event_version: int,
+        payload: dict[str, object],
+    ) -> None:
+        self.messages.append(
+            {
+                "event_type": event_type,
+                "event_version": event_version,
+                "payload": payload,
+            }
+        )
 
 
 class DummySession:
@@ -120,11 +141,14 @@ def _client_post(
 class AuthApiIntegrationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.repo = InMemoryUserRepo()
+        self.outbox_repo = InMemoryOutboxRepo()
         self.patches: list[PatchLike] = [
-            patch("src.main.init_db", new=AsyncMock(return_value=None)),
+            patch("src.main.start_outbox_dispatcher", new=AsyncMock(return_value=None)),
+            patch("src.main.stop_outbox_dispatcher", new=AsyncMock(return_value=None)),
             patch("src.api.graphql.schema.AsyncSessionLocal", new=make_session_context),
             patch("src.api.graphql.schema.get_user_repo", new=self._get_user_repo),
             patch("src.api.graphql.schema.get_user_read_repo", new=self._get_user_read_repo),
+            patch("src.api.graphql.schema.get_outbox_repo", new=self._get_outbox_repo),
             patch("src.api.graphql.schema.rate_limit", new=AsyncMock(return_value=None)),
         ]
         for active_patch in self.patches:
@@ -144,6 +168,10 @@ class AuthApiIntegrationTests(unittest.TestCase):
     def _get_user_read_repo(self, session: object) -> InMemoryUserRepo:
         _ = session
         return self.repo
+
+    def _get_outbox_repo(self, session: object) -> InMemoryOutboxRepo:
+        _ = session
+        return self.outbox_repo
 
     def graphql(
         self,
@@ -326,6 +354,8 @@ class AuthApiIntegrationTests(unittest.TestCase):
         self.assertIsNone(unknown_response.json()["data"]["requestPasswordReset"]["resetUrlPreview"])
         self.assertEqual(user.reset_token_hash, graphql_schema.token_service.hash_reset_token(raw_token))
         self.assertNotEqual(user.reset_token_hash, raw_token)
+        self.assertEqual(len(self.outbox_repo.messages), 1)
+        self.assertEqual(self.outbox_repo.messages[0]["event_type"], "password_reset_requested")
 
     def test_validate_reset_token_returns_true_for_valid_hashed_token_and_false_for_invalid(self) -> None:
         user = self.create_user("user@example.com", "ValidPassword1")

@@ -1,7 +1,8 @@
 from dataclasses import dataclass
+from src.application.events import PasswordResetRequestedEvent
 from src.domain.value_objects import Email, RawPassword, HashedPassword
 from src.domain.exceptions import InvalidResetTokenError
-from src.application.ports import UserRepository, PasswordHasher, TokenService
+from src.application.ports import OutboxRepository, PasswordHasher, TokenService, UserRepository
 from src.infrastructure.observability.logger import log
 
 
@@ -19,11 +20,13 @@ class RequestPasswordResetHandler:
     def __init__(
         self,
         user_repo: UserRepository,
+        outbox_repo: OutboxRepository,
         token_service: TokenService,
         app_base_url: str,
         preview_enabled: bool,
     ):
         self._user_repo = user_repo
+        self._outbox_repo = outbox_repo
         self._token_service = token_service
         self._app_base_url = app_base_url.rstrip("/")
         self._preview_enabled = preview_enabled
@@ -46,16 +49,35 @@ class RequestPasswordResetHandler:
 
         reset_token = self._token_service.generate_reset_token()
         reset_token_hash = self._token_service.hash_reset_token(reset_token)
+        reset_url = f"{self._app_base_url}/reset-password?token={reset_token}"
         user.request_password_reset(reset_token_hash)
         await self._user_repo.save(user)
 
+        expires_at = user.reset_token_expires_at
+        if expires_at is None:
+            raise RuntimeError("Reset token expiration must be set")
+
+        event = PasswordResetRequestedEvent(
+            user_id=str(user.id),
+            email=user.email.value,
+            reset_url=reset_url,
+            expires_at=expires_at,
+        )
+        await self._outbox_repo.enqueue(
+            event_type=event.event_type,
+            event_version=event.event_version,
+            payload=event.to_payload(),
+        )
+
         if self._preview_enabled:
-            result.reset_url_preview = f"{self._app_base_url}/reset-password?token={reset_token}"
+            result.reset_url_preview = reset_url
 
         log.info(
             "password_reset_requested",
             user_id=str(user.id),
             delivery_mode=result.delivery_mode,
+            event_type=event.event_type,
+            event_version=event.event_version,
             preview_available=bool(result.reset_url_preview),
         )
         return result
@@ -73,10 +95,11 @@ class ResetPasswordHandler:
         self._token_service = token_service
 
     async def handle(self, command: ResetPasswordCommand) -> None:
-        token_hash = self._token_service.hash_reset_token(command.token)
-        user = await self._user_repo.get_by_reset_token(token_hash)
+        user = await self._user_repo.get_by_reset_token(command.token)
         if not user:
             raise InvalidResetTokenError("Invalid token")
+
+        token_hash = self._token_service.hash_reset_token(command.token)
             
         raw_password = RawPassword(command.new_password)
         hashed_password = HashedPassword(self._password_hasher.hash_password(raw_password.value))

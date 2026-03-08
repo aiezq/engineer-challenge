@@ -19,7 +19,11 @@ from src.application.commands.password_reset import (
 from src.config import get_settings
 from src.domain.exceptions import InvalidCredentialsError
 from src.infrastructure.db.database import AsyncSessionLocal
-from src.infrastructure.db.repository import SqlAlchemyUserReadRepository, SqlAlchemyUserRepository
+from src.infrastructure.db.repository import (
+    SqlAlchemyOutboxRepository,
+    SqlAlchemyUserReadRepository,
+    SqlAlchemyUserRepository,
+)
 from src.infrastructure.auth.password_hasher import BcryptPasswordHasher
 from src.infrastructure.auth.rate_limiter import rate_limit
 from src.infrastructure.auth.token_service import JwtTokenService
@@ -31,6 +35,10 @@ def get_user_repo(session: AsyncSession) -> SqlAlchemyUserRepository:
 
 def get_user_read_repo(session: AsyncSession) -> SqlAlchemyUserReadRepository:
     return SqlAlchemyUserReadRepository(session)
+
+
+def get_outbox_repo(session: AsyncSession) -> SqlAlchemyOutboxRepository:
+    return SqlAlchemyOutboxRepository(session)
 
 settings = get_settings()
 hasher = BcryptPasswordHasher()
@@ -87,7 +95,7 @@ class Query:
         await rate_limit(info.context["request"], limit=10, window=60, key_suffix="validate_reset_token")
         async with AsyncSessionLocal() as session:
             repo = get_user_read_repo(session)
-            handler = ValidateResetTokenHandler(repo, token_service)
+            handler = ValidateResetTokenHandler(repo)
             return await handler.handle(ValidateResetTokenQuery(token=token))
 
 @strawberry.type
@@ -123,8 +131,10 @@ class Mutation:
         await rate_limit(info.context["request"], limit=5, window=60, key_suffix="request_password_reset")
         async with AsyncSessionLocal() as session:
             repo = get_user_repo(session)
+            outbox_repo = get_outbox_repo(session)
             handler = RequestPasswordResetHandler(
                 repo,
+                outbox_repo,
                 token_service,
                 app_base_url=settings.app_base_url,
                 preview_enabled=settings.app_env != "production",

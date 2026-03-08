@@ -34,6 +34,7 @@ services:
       context: ./backend
     container_name: orbitto-backend
     environment:
+      APP_ENV: development
       DATABASE_URL: postgresql+asyncpg://orbitto_user:orbitto_password@database:5432/orbitto_db
       REDIS_URL: redis://redis:6379
       APP_BASE_URL: http://localhost:3000

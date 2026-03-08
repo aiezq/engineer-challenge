@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+from datetime import datetime
 from abc import ABC, abstractmethod
 from typing import Optional, TypedDict
 from src.domain.user import User
@@ -8,6 +10,17 @@ class TokenPayload(TypedDict, total=False):
     sub: str
     email: str
     exp: object
+
+
+@dataclass(frozen=True)
+class OutboxMessage:
+    id: str
+    event_type: str
+    event_version: int
+    payload: dict[str, object]
+    attempt_count: int
+    available_at: datetime
+
 
 class UserRepository(ABC):
     @abstractmethod
@@ -24,6 +37,30 @@ class UserRepository(ABC):
 
     @abstractmethod
     async def save(self, user: User) -> None:
+        pass
+
+
+class OutboxRepository(ABC):
+    @abstractmethod
+    async def enqueue(
+        self,
+        *,
+        event_type: str,
+        event_version: int,
+        payload: dict[str, object],
+    ) -> None:
+        pass
+
+    @abstractmethod
+    async def reserve_pending(self, *, limit: int) -> list[OutboxMessage]:
+        pass
+
+    @abstractmethod
+    async def mark_delivered(self, message_id: str) -> None:
+        pass
+
+    @abstractmethod
+    async def mark_failed(self, message_id: str, error: str, retry_at: datetime) -> None:
         pass
 
 
@@ -52,4 +89,10 @@ class TokenService(ABC):
 
     @abstractmethod
     def hash_reset_token(self, token: str) -> str:
+        pass
+
+
+class PasswordResetDelivery(ABC):
+    @abstractmethod
+    async def deliver_password_reset(self, payload: dict[str, object]) -> None:
         pass

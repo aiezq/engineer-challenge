@@ -34,6 +34,12 @@ def make_settings(*, rate_limit_fail_open: bool) -> Settings:
         jwt_algorithm="HS256",
         access_token_expire_minutes=30,
         rate_limit_fail_open=rate_limit_fail_open,
+        smtp_host=None,
+        smtp_port=None,
+        smtp_username=None,
+        smtp_password=None,
+        smtp_from_email=None,
+        smtp_use_tls=True,
         cors_origins=("http://localhost:3000",),
     )
 

@@ -14,7 +14,7 @@ def make_user() -> User:
 
 class TokenServiceTests(unittest.TestCase):
     def test_generate_and_decode_token_roundtrip(self) -> None:
-        service = JwtTokenService(secret_key="test-secret")
+        service = JwtTokenService(secret_key="test-secret-key-with-32-bytes!!!")
         user = make_user()
 
         token = service.generate_token(user)
@@ -24,13 +24,13 @@ class TokenServiceTests(unittest.TestCase):
         self.assertEqual(payload.get("email"), user.email.value)
 
     def test_decode_token_rejects_invalid_value(self) -> None:
-        service = JwtTokenService(secret_key="test-secret")
+        service = JwtTokenService(secret_key="test-secret-key-with-32-bytes!!!")
 
         with self.assertRaises(InvalidCredentialsError):
             service.decode_token("not-a-valid-jwt")
 
     def test_hash_reset_token_is_deterministic_and_not_raw(self) -> None:
-        service = JwtTokenService(secret_key="test-secret")
+        service = JwtTokenService(secret_key="test-secret-key-with-32-bytes!!!")
 
         hashed_token = service.hash_reset_token("plain-reset-token")
 

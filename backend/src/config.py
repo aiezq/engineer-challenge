@@ -27,6 +27,12 @@ def _parse_optional_bool(value: str | None) -> bool | None:
     raise ValueError("RATE_LIMIT_FAIL_OPEN must be a boolean value")
 
 
+def _parse_int(value: str | None) -> int | None:
+    if value is None or not value.strip():
+        return None
+    return int(value)
+
+
 def _resolve_jwt_secret_key(app_env: str) -> str:
     configured_secret = os.getenv("JWT_SECRET_KEY")
     if configured_secret:
@@ -56,6 +62,12 @@ class Settings:
     jwt_algorithm: str
     access_token_expire_minutes: int
     rate_limit_fail_open: bool
+    smtp_host: str | None
+    smtp_port: int | None
+    smtp_username: str | None
+    smtp_password: str | None
+    smtp_from_email: str | None
+    smtp_use_tls: bool
     cors_origins: tuple[str, ...]
 
 
@@ -77,6 +89,12 @@ def get_settings() -> Settings:
         jwt_algorithm=os.getenv("JWT_ALGORITHM", "HS256"),
         access_token_expire_minutes=int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30")),
         rate_limit_fail_open=_resolve_rate_limit_fail_open(app_env),
+        smtp_host=os.getenv("SMTP_HOST"),
+        smtp_port=_parse_int(os.getenv("SMTP_PORT")),
+        smtp_username=os.getenv("SMTP_USERNAME"),
+        smtp_password=os.getenv("SMTP_PASSWORD"),
+        smtp_from_email=os.getenv("SMTP_FROM_EMAIL"),
+        smtp_use_tls=_parse_optional_bool(os.getenv("SMTP_USE_TLS")) is not False,
         cors_origins=_split_csv(
             os.getenv("CORS_ORIGINS"),
             ("http://localhost:3000", "http://127.0.0.1:3000"),
