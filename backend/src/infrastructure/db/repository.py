@@ -12,7 +12,8 @@ class SqlAlchemyUserRepository(UserRepository):
     def __init__(self, session: AsyncSession):
         self._session = session
 
-    def _to_domain(self, model: UserModel) -> User:
+    @staticmethod
+    def to_domain(model: UserModel) -> User:
         return User(
             id=model.id,
             email=Email(model.email),
@@ -29,17 +30,17 @@ class SqlAlchemyUserRepository(UserRepository):
 
     async def get_by_id(self, user_id: str) -> Optional[User]:
         model = await self._get_model_by_id(user_id)
-        return self._to_domain(model) if model else None
+        return self.to_domain(model) if model else None
 
     async def get_by_email(self, email: Email) -> Optional[User]:
         result = await self._session.execute(select(UserModel).where(UserModel.email == email.value))
         model = result.scalar_one_or_none()
-        return self._to_domain(model) if model else None
+        return self.to_domain(model) if model else None
 
     async def get_by_reset_token(self, token: str) -> Optional[User]:
         result = await self._session.execute(select(UserModel).where(UserModel.reset_token == token))
         model = result.scalar_one_or_none()
-        return self._to_domain(model) if model else None
+        return self.to_domain(model) if model else None
 
     async def save(self, user: User) -> None:
         model = await self._session.get(UserModel, user.id)
@@ -70,7 +71,7 @@ class SqlAlchemyUserReadRepository(UserReadRepository):
             id=str(model.id),
             email=model.email,
             is_active=model.is_active,
-            created_at=model.created_at.isoformat() if model.created_at else ""
+            created_at=model.created_at.isoformat()
         )
 
     async def is_reset_token_valid(self, token: str) -> bool:
@@ -79,7 +80,7 @@ class SqlAlchemyUserReadRepository(UserReadRepository):
         if not model:
             return False
 
-        user = SqlAlchemyUserRepository(self._session)._to_domain(model)
+        user = SqlAlchemyUserRepository.to_domain(model)
         from datetime import datetime, timezone
         if not user.reset_token_expires_at or user.reset_token_expires_at < datetime.now(timezone.utc):
             return False
