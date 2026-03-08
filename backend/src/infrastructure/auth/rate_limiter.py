@@ -1,9 +1,9 @@
 import redis.asyncio as redis
-import os
 from fastapi import Request, HTTPException
+from src.config import get_settings
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
-redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+settings = get_settings()
+redis_client = redis.from_url(settings.redis_url, decode_responses=True)
 
 async def rate_limit(request: Request, limit: int = 10, window: int = 60):
     client_ip = request.client.host

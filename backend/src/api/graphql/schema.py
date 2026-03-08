@@ -11,6 +11,7 @@ from src.application.commands.password_reset import (
     RequestPasswordResetCommand, RequestPasswordResetHandler,
     ResetPasswordCommand, ResetPasswordHandler
 )
+from src.config import get_settings
 from src.infrastructure.db.database import AsyncSessionLocal
 from src.infrastructure.db.repository import SqlAlchemyUserReadRepository, SqlAlchemyUserRepository
 from src.infrastructure.auth.password_hasher import BcryptPasswordHasher
@@ -24,8 +25,13 @@ def get_user_repo(session):
 def get_user_read_repo(session):
     return SqlAlchemyUserReadRepository(session)
 
+settings = get_settings()
 hasher = BcryptPasswordHasher()
-token_service = JwtTokenService(secret_key="SECRET_DONT_USE_IN_PROD")
+token_service = JwtTokenService(
+    secret_key=settings.jwt_secret_key,
+    algorithm=settings.jwt_algorithm,
+    access_token_expire_minutes=settings.access_token_expire_minutes,
+)
 
 @strawberry.type
 class Query:

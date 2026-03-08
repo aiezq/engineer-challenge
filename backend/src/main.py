@@ -1,14 +1,26 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from strawberry.fastapi import GraphQLRouter
+from src.config import get_settings
 from src.api.graphql.schema import schema
 from src.infrastructure.db.database import init_db
 
-app = FastAPI(title="Orbitto Auth Service")
+
+settings = get_settings()
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    await init_db()
+    yield
+
+
+app = FastAPI(title="Orbitto Auth Service", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=list(settings.cors_origins),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -16,10 +28,6 @@ app.add_middleware(
 
 graphql_app = GraphQLRouter(schema)
 app.include_router(graphql_app, prefix="/graphql")
-
-@app.on_event("startup")
-async def on_startup():
-    await init_db()
 
 @app.get("/health")
 def health_check():
